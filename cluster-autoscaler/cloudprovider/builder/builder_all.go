@@ -1,4 +1,4 @@
-// +build !gce,!aws,!azure,!kubemark,!alicloud,!magnum,!digitalocean,!clusterapi,!huaweicloud
+// +build !gce,!aws,!azure,!kubemark,!alicloud,!magnum,!digitalocean,!clusterapi,!huaweicloud,!brightbox
 
 /*
 Copyright 2018 The Kubernetes Authors.
@@ -24,6 +24,7 @@ import (
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/aws"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/azure"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/baiducloud"
+	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/brightbox"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/clusterapi"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/digitalocean"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/gce"
@@ -44,6 +45,7 @@ var AvailableCloudProviders = []string{
 	cloudprovider.DigitalOceanProviderName,
 	cloudprovider.HuaweicloudProviderName,
 	clusterapi.ProviderName,
+	cloudprovider.BrightboxProviderName,
 }
 
 // DefaultCloudProvider is GCE.
@@ -61,6 +63,8 @@ func buildCloudProvider(opts config.AutoscalingOptions, do cloudprovider.NodeGro
 		return alicloud.BuildAlicloud(opts, do, rl)
 	case cloudprovider.BaiducloudProviderName:
 		return baiducloud.BuildBaiducloud(opts, do, rl)
+	case cloudprovider.BrightboxProviderName:
+		return brightbox.BuildBrightbox(opts, do, rl)
 	case cloudprovider.DigitalOceanProviderName:
 		return digitalocean.BuildDigitalOcean(opts, do, rl)
 	case cloudprovider.MagnumProviderName:
