@@ -24,13 +24,21 @@ import (
 	"k8s.io/autoscaler/cluster-autoscaler/utils/errors"
 )
 
+const (
+	GPULabel = "cloud.brightbox.com/gpu-node"
+)
+
+var (
+	availableGPUTypes = map[string]struct{}{}
+)
+
 // brightboxCloudProvider implements cloudprovider.CloudProvider interface
 type brightboxCloudProvider struct {
 }
 
 // Name returns name of the cloud provider.
 func (b *brightboxCloudProvider) Name() string {
-	panic("not implemented") // TODO: Implement
+	return cloudprovider.BrightboxProviderName
 }
 
 // NodeGroups returns all node groups configured for this cloud provider.
@@ -49,7 +57,7 @@ func (b *brightboxCloudProvider) NodeGroupForNode(_ *apiv1.Node) (cloudprovider.
 // not available.
 // Implementation optional.
 func (b *brightboxCloudProvider) Pricing() (cloudprovider.PricingModel, errors.AutoscalerError) {
-	panic("not implemented") // TODO: Implement
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 // GetAvailableMachineTypes get all machine types that can be requested
@@ -76,13 +84,13 @@ func (b *brightboxCloudProvider) GetResourceLimiter() (*cloudprovider.ResourceLi
 
 // GPULabel returns the label added to nodes with GPU resource.
 func (b *brightboxCloudProvider) GPULabel() string {
-	panic("not implemented") // TODO: Implement
+	return GPULabel
 }
 
 // GetAvailableGPUTypes return all available GPU types cloud provider
 // supports.
 func (b *brightboxCloudProvider) GetAvailableGPUTypes() map[string]struct{} {
-	panic("not implemented") // TODO: Implement
+	return availableGPUTypes
 }
 
 // Cleanup cleans up open resources before the cloud provider is
