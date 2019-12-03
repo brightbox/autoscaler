@@ -17,11 +17,15 @@ limitations under the License.
 package brightbox
 
 import (
+	"strings"
+
+	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk"
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider"
 	"k8s.io/autoscaler/cluster-autoscaler/config"
 	"k8s.io/autoscaler/cluster-autoscaler/utils/errors"
+	"k8s.io/klog"
 )
 
 const (
@@ -34,23 +38,76 @@ var (
 
 // brightboxCloudProvider implements cloudprovider.CloudProvider interface
 type brightboxCloudProvider struct {
+	resourceLimiter *cloudprovider.ResourceLimiter
+	ClusterName     string
+	nodeGroups      []cloudprovider.NodeGroup
+	nodeMap         map[string]string
+	*k8ssdk.Cloud
 }
 
 // Name returns name of the cloud provider.
 func (b *brightboxCloudProvider) Name() string {
+	klog.V(4).Info("Name called")
 	return cloudprovider.BrightboxProviderName
 }
 
 // NodeGroups returns all node groups configured for this cloud provider.
 func (b *brightboxCloudProvider) NodeGroups() []cloudprovider.NodeGroup {
-	panic("not implemented") // TODO: Implement
+	klog.V(4).Info("NodeGroups called")
+	// Duplicate the stored nodegroup elements and return it
+	//return append(b.nodeGroups[:0:0], b.nodeGroups...)
+	// Or just return the stored nodegroup elements by reference
+	return b.nodeGroups
 }
 
 // NodeGroupForNode returns the node group for the given node, nil if
 // the node should not be processed by cluster autoscaler, or non-nil
 // error if such occurred. Must be implemented.
-func (b *brightboxCloudProvider) NodeGroupForNode(_ *apiv1.Node) (cloudprovider.NodeGroup, error) {
-	panic("not implemented") // TODO: Implement
+func (b *brightboxCloudProvider) NodeGroupForNode(node *apiv1.Node) (cloudprovider.NodeGroup, error) {
+	klog.V(4).Info("NodeGroupForNode called")
+	klog.V(4).Infof("Looking for %v", node.Spec.ProviderID)
+	groupId, ok := b.nodeMap[k8ssdk.MapProviderIDToServerID(node.Spec.ProviderID)]
+	if ok {
+		klog.V(4).Infof("Found in group %v", groupId)
+		return b.findNodeGroup(groupId), nil
+	}
+	klog.V(4).Info("Not found")
+	return nil, nil
+}
+
+func (b *brightboxCloudProvider) findNodeGroup(grpId string) cloudprovider.NodeGroup {
+	for _, nodeGroup := range b.nodeGroups {
+		if nodeGroup.Id() == grpId {
+			return nodeGroup
+		}
+	}
+	return nil
+}
+
+// Refresh is called before every main loop and can be used to dynamically
+// update cloud provider state.
+// In particular the list of node groups returned by NodeGroups can
+// change as a result of CloudProvider.Refresh().
+func (b *brightboxCloudProvider) Refresh() error {
+	klog.V(4).Info("Refresh called")
+	groups, err := b.GetServerGroups()
+	if err != nil {
+		return err
+	}
+	clusterSuffix := "." + b.ClusterName
+	nodeGroups := make([]cloudprovider.NodeGroup, 0)
+	nodeMap := make(map[string]string)
+	for _, group := range groups {
+		if strings.HasSuffix(group.Description, clusterSuffix) {
+			nodeGroups = append(nodeGroups, &brightboxNodeGroup{id: group.Id})
+			for _, server := range group.Servers {
+				nodeMap[server.Id] = group.Id
+			}
+		}
+	}
+	b.nodeGroups = nodeGroups
+	b.nodeMap = nodeMap
+	return nil
 }
 
 // Pricing returns pricing model for this cloud provider or error if
@@ -64,7 +121,7 @@ func (b *brightboxCloudProvider) Pricing() (cloudprovider.PricingModel, errors.A
 // from the cloud provider.
 // Implementation optional.
 func (b *brightboxCloudProvider) GetAvailableMachineTypes() ([]string, error) {
-	panic("not implemented") // TODO: Implement
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 // NewNodeGroup builds a theoretical node group based on the node
@@ -73,38 +130,34 @@ func (b *brightboxCloudProvider) GetAvailableMachineTypes() ([]string, error) {
 // until it is created.
 // Implementation optional.
 func (b *brightboxCloudProvider) NewNodeGroup(machineType string, labels map[string]string, systemLabels map[string]string, taints []apiv1.Taint, extraResources map[string]resource.Quantity) (cloudprovider.NodeGroup, error) {
-	panic("not implemented") // TODO: Implement
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 // GetResourceLimiter returns struct containing limits (max, min) for
 // resources (cores, memory etc.).
 func (b *brightboxCloudProvider) GetResourceLimiter() (*cloudprovider.ResourceLimiter, error) {
-	panic("not implemented") // TODO: Implement
+	klog.V(4).Info("GetResourceLimiter called")
+	return b.resourceLimiter, nil
 }
 
 // GPULabel returns the label added to nodes with GPU resource.
 func (b *brightboxCloudProvider) GPULabel() string {
+	klog.V(4).Info("GPULabel called")
 	return GPULabel
 }
 
 // GetAvailableGPUTypes return all available GPU types cloud provider
 // supports.
 func (b *brightboxCloudProvider) GetAvailableGPUTypes() map[string]struct{} {
+	klog.V(4).Info("GetAvailableGPUTypes called")
 	return availableGPUTypes
 }
 
 // Cleanup cleans up open resources before the cloud provider is
 // destroyed, i.e. go routines etc.
 func (b *brightboxCloudProvider) Cleanup() error {
-	panic("not implemented") // TODO: Implement
-}
-
-// Refresh is called before every main loop and can be used to dynamically
-// update cloud provider state.
-// In particular the list of node groups returned by NodeGroups can
-// change as a result of CloudProvider.Refresh().
-func (b *brightboxCloudProvider) Refresh() error {
-	panic("not implemented") // TODO: Implement
+	klog.V(4).Info("Cleanup called")
+	return nil
 }
 
 // BuildBrightbox builds the Brightbox provider
@@ -113,5 +166,23 @@ func BuildBrightbox(
 	do cloudprovider.NodeGroupDiscoveryOptions,
 	rl *cloudprovider.ResourceLimiter,
 ) cloudprovider.CloudProvider {
-	return &brightboxCloudProvider{}
+	klog.V(4).Info("BuildBrightbox called")
+	klog.V(4).Infof("Config: %+v", opts)
+	klog.V(4).Infof("Discovery Options: %+v", do)
+	if opts.CloudConfig != "" {
+		klog.Warning("supplied config is not read by this version. Using environment")
+	}
+	if opts.ClusterName == "" {
+		klog.Fatal("Set the cluster name option to the Fully Qualified Internal Domain Name of the cluster")
+	}
+	newCloudProvider := &brightboxCloudProvider{
+		ClusterName:     opts.ClusterName,
+		resourceLimiter: rl,
+		Cloud:           &k8ssdk.Cloud{},
+	}
+	_, err := newCloudProvider.CloudClient()
+	if err != nil {
+		klog.Fatalf("Failed to create Brightbox Cloud Client: %v", err)
+	}
+	return newCloudProvider
 }
