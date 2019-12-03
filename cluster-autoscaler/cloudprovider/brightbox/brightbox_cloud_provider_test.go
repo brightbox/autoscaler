@@ -18,16 +18,18 @@ package brightbox
 
 import (
 	"encoding/json"
+	"flag"
 	"strings"
 	"testing"
 
 	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk"
 	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk/mocks"
-	"github.com/brightbox/gobrightbox"
+	brightbox "github.com/brightbox/gobrightbox"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider"
 	"k8s.io/autoscaler/cluster-autoscaler/config"
+	"k8s.io/klog"
 )
 
 const (
@@ -48,6 +50,13 @@ var (
 		fakeNodeGroup,
 	}
 )
+
+func init() {
+	klog.InitFlags(nil)
+	flag.Set("alsologtostderr", "true")
+	flag.Set("v", "4")
+	flag.Parse()
+}
 
 func TestName(t *testing.T) {
 	assert.Equal(t, makeFakeCloudProvider(nil).Name(), cloudprovider.BrightboxProviderName)
