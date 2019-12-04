@@ -1,15 +1,23 @@
 package brightbox
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
+
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider"
+	"k8s.io/klog"
 	schedulernodeinfo "k8s.io/kubernetes/pkg/scheduler/nodeinfo"
 )
 
 type brightboxNodeGroup struct {
-	id      string
-	minSize int
-	maxSize int
+	id           string
+	minSize      int
+	maxSize      int
+	serverTypeId string
+	imageId      string
+	zoneId       string
 }
 
 // MaxSize returns maximum size of the node group.
@@ -65,7 +73,7 @@ func (ng *brightboxNodeGroup) Id() string {
 // Debug returns a string containing all information regarding this
 // node group.
 func (ng *brightboxNodeGroup) Debug() string {
-	panic("not implemented") // TODO: Implement
+	return fmt.Sprintf("brightboxNodeGroup %+v", *ng)
 }
 
 // Nodes returns a list of all nodes that belong to this node group.
@@ -111,4 +119,38 @@ func (ng *brightboxNodeGroup) Delete() error {
 // to 0.
 func (ng *brightboxNodeGroup) Autoprovisioned() bool {
 	return false
+}
+
+func makeNodeGroupFromApiDetails(
+	id string,
+	description string,
+	defaultSize int,
+	defaultServerTypeId string,
+	defaultImageId string,
+	defaultZoneId string,
+) *brightboxNodeGroup {
+	klog.V(4).Info("makeNodeGroupFromApiDetails")
+	klog.V(4).Infof("Group: %s, Description: %s", id, description)
+	klog.V(4).Infof("Default size: %v", defaultSize)
+	result := brightboxNodeGroup{
+		id:           id,
+		minSize:      defaultSize,
+		maxSize:      defaultSize,
+		serverTypeId: defaultServerTypeId,
+		imageId:      defaultImageId,
+		zoneId:       defaultZoneId,
+	}
+	sizes := strings.Split(description, ":")
+	if len(sizes) == 2 {
+		value, err := strconv.Atoi(sizes[0])
+		if err == nil {
+			result.minSize = value
+		}
+		value, err = strconv.Atoi(sizes[1])
+		if err == nil {
+			result.maxSize = value
+		}
+	}
+	klog.V(4).Info(result.Debug())
+	return &result
 }
