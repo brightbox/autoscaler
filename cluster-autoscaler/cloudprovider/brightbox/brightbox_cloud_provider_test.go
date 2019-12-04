@@ -26,6 +26,7 @@ import (
 	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk/mocks"
 	brightbox "github.com/brightbox/gobrightbox"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider"
 	"k8s.io/autoscaler/cluster-autoscaler/config"
@@ -116,12 +117,10 @@ func TestNodeGroupForNode(t *testing.T) {
 	client := makeFakeCloudProvider(nil)
 	client.nodeGroups = fakeNodeGroups
 	client.nodeMap = fakeNodeMap
-	node := makeNode(fakeServer)
-	nodeGroup, err := client.NodeGroupForNode(&node)
+	nodeGroup, err := client.NodeGroupForNode(makeNode(fakeServer))
 	assert.Equal(t, fakeNodeGroup, nodeGroup)
 	assert.Nil(t, err)
-	node = makeNode(missingServer)
-	nodeGroup, err = client.NodeGroupForNode(&node)
+	nodeGroup, err = client.NodeGroupForNode(makeNode(missingServer))
 	assert.Nil(t, nodeGroup)
 	assert.Nil(t, err)
 }
@@ -147,16 +146,26 @@ func TestRefresh(t *testing.T) {
 	mockclient := new(mocks.CloudAccess)
 	testclient := k8ssdk.MakeTestClient(mockclient, nil)
 	provider := makeFakeCloudProvider(testclient)
-	testGroups := fakeGroups()
-	mockclient.On("ServerGroups").Return(testGroups, nil)
+	mockclient.On("ServerGroups").Return(fakeGroups(), nil)
+	mockclient.On("Server", "srv-lv426").Return(fakeServerlv426(), nil)
+	mockclient.On("Server", "srv-rp897").Return(fakeServerrp897(), nil)
 	err := provider.Refresh()
-	assert.NotEmpty(t, provider.nodeGroups)
+	require.Nil(t, err)
+	assert.Len(t, provider.nodeGroups, 1)
 	assert.NotEmpty(t, provider.nodeMap)
+	node, err := provider.NodeGroupForNode(makeNode("srv-lv426"))
 	assert.Nil(t, err)
+	require.NotNil(t, node)
+	assert.Equal(t, node.Id(), "grp-sda44")
+	node, err = provider.NodeGroupForNode(makeNode("srv-rp897"))
+	assert.Nil(t, err)
+	require.NotNil(t, node)
+	assert.Equal(t, node.Id(), "grp-sda44")
+	mockclient.AssertExpectations(t)
 }
 
-func makeNode(serverID string) v1.Node {
-	return v1.Node{
+func makeNode(serverID string) *v1.Node {
+	return &v1.Node{
 		Spec: v1.NodeSpec{
 			ProviderID: k8ssdk.MapServerIDToProviderID(serverID),
 		},
@@ -176,8 +185,8 @@ func fakeGroups() []brightbox.ServerGroup {
 [{"id": "grp-sda44",
   "resource_type": "server_group",
   "url": "https://api.gb1.brightbox.com/1.0/server_groups/grp-sda44",
-  "name": "default",
-  "description": "storage.k8s-fake.cluster.local",
+  "name": "storage.k8s-fake.cluster.local",
+  "description": "1:4",
   "created_at": "2011-10-01T00:00:00Z",
   "default": true,
   "account":
@@ -195,7 +204,8 @@ func fakeGroups() []brightbox.ServerGroup {
     "created_at": "2011-10-01T00:00:00Z",
     "description": null},
   "servers":
-   [{"id": "srv-lv426",
+   [
+   {"id": "srv-lv426",
      "resource_type": "server",
      "url": "https://api.gb1.brightbox.com/1.0/servers/srv-lv426",
      "name": "",
@@ -205,9 +215,195 @@ func fakeGroups() []brightbox.ServerGroup {
      "fqdn": "srv-lv426.gb1.brightbox.com",
      "created_at": "2011-10-01T01:00:00Z",
      "started_at": "2011-10-01T01:01:00Z",
-     "deleted_at": null}]}]
+     "deleted_at": null},
+   {"id": "srv-rp897",
+     "resource_type": "server",
+     "url": "https://api.gb1.brightbox.com/1.0/servers/srv-rp897",
+     "name": "",
+     "status": "active",
+     "locked": false,
+     "hostname": "srv-rp897",
+     "fqdn": "srv-rp897.gb1.brightbox.com",
+     "created_at": "2011-10-01T01:00:00Z",
+     "started_at": "2011-10-01T01:01:00Z",
+     "deleted_at": null}
+     ]}]
      `
 	var result []brightbox.ServerGroup
 	_ = json.NewDecoder(strings.NewReader(groupjson)).Decode(&result)
 	return result
+}
+
+func fakeServerlv426() *brightbox.Server {
+	const serverjson = `
+{"id": "srv-lv426",
+ "resource_type": "server",
+ "url": "https://api.gb1.brightbox.com/1.0/servers/srv-lv426",
+ "name": "storage-0.storage.k8s-fake.cluster.local",
+ "status": "active",
+ "locked": false,
+ "hostname": "srv-lv426",
+ "created_at": "2011-10-01T01:00:00Z",
+ "started_at": "2011-10-01T01:01:00Z",
+ "deleted_at": null,
+ "user_data": null,
+ "fqdn": "srv-lv426.gb1.brightbox.com",
+ "compatibility_mode": false,
+ "console_url": null,
+ "console_token": null,
+ "console_token_expires": null,
+ "account":
+  {"id": "acc-43ks4",
+   "resource_type": "account",
+   "url": "https://api.gb1.brightbox.com/1.0/accounts/acc-43ks4",
+   "name": "Brightbox",
+   "status": "active"},
+ "image":
+  {"id": "img-3ikco",
+   "resource_type": "image",
+   "url": "https://api.gb1.brightbox.com/1.0/images/img-3ikco",
+   "name": "Ubuntu Lucid 10.04 server",
+   "username": "ubuntu",
+   "status": "available",
+   "locked": false,
+   "description": "Expands root partition automatically. login: ubuntu using stored ssh key",
+   "source": "ubuntu-lucid-daily-i64-server-20110509",
+   "arch": "x86_64",
+   "created_at": "2011-05-09T12:00:00Z",
+   "official": true,
+   "public": true,
+   "owner": "acc-43ks4"},
+ "server_type":
+  {"id": "typ-zx45f",
+   "resource_type": "server_type",
+   "url": "https://api.gb1.brightbox.com/1.0/server_types/typ-zx45f",
+   "name": "Small",
+   "status": "available",
+   "cores": 2,
+   "ram": 2048,
+   "disk_size": 81920,
+   "handle": "small"},
+ "zone":
+  {"id": "zon-328ds",
+   "resource_type": "zone",
+   "url": "https://api.gb1.brightbox.com/1.0/zones/zon-328ds",
+   "handle": "gb1"},
+ "cloud_ips":
+  [{"id": "cip-k4a25",
+    "resource_type": "cloud_ip",
+    "url": "https://api.gb1.brightbox.com/1.0/cloud_ips/cip-k4a25",
+    "status": "mapped",
+    "public_ip": "109.107.50.0",
+    "public_ipv4": "109.107.50.0",
+    "public_ipv6": "2a02:1348:ffff:ffff::6d6b:3200",
+    "fqdn": "cip-k4a25.gb1.brightbox.com",
+    "reverse_dns": null,
+    "name": "product website ip"}],
+ "interfaces":
+  [{"id": "int-ds42k",
+    "resource_type": "interface",
+    "url": "https://api.gb1.brightbox.com/1.0/interfaces/int-ds42k",
+    "mac_address": "02:24:19:00:00:ee",
+    "ipv4_address": "81.15.16.17"}],
+ "snapshots":
+  [],
+ "server_groups":
+  [{"id": "grp-sda44",
+    "resource_type": "server_group",
+    "url": "https://api.gb1.brightbox.com/1.0/server_groups/grp-sda44",
+    "name": "",
+    "description": null,
+    "created_at": "2011-10-01T00:00:00Z",
+    "default": true}]}
+`
+	var result brightbox.Server
+	_ = json.NewDecoder(strings.NewReader(serverjson)).Decode(&result)
+	return &result
+}
+
+func fakeServerrp897() *brightbox.Server {
+	const serverjson = `
+{"id": "srv-rp897",
+ "resource_type": "server",
+ "url": "https://api.gb1.brightbox.com/1.0/servers/srv-rp897",
+ "name": "storage-0.storage.k8s-fake.cluster.local",
+ "status": "active",
+ "locked": false,
+ "hostname": "srv-rp897",
+ "created_at": "2011-10-01T01:00:00Z",
+ "started_at": "2011-10-01T01:01:00Z",
+ "deleted_at": null,
+ "user_data": null,
+ "fqdn": "srv-rp897.gb1.brightbox.com",
+ "compatibility_mode": false,
+ "console_url": null,
+ "console_token": null,
+ "console_token_expires": null,
+ "account":
+  {"id": "acc-43ks4",
+   "resource_type": "account",
+   "url": "https://api.gb1.brightbox.com/1.0/accounts/acc-43ks4",
+   "name": "Brightbox",
+   "status": "active"},
+ "image":
+  {"id": "img-3ikco",
+   "resource_type": "image",
+   "url": "https://api.gb1.brightbox.com/1.0/images/img-3ikco",
+   "name": "Ubuntu Lucid 10.04 server",
+   "username": "ubuntu",
+   "status": "available",
+   "locked": false,
+   "description": "Expands root partition automatically. login: ubuntu using stored ssh key",
+   "source": "ubuntu-lucid-daily-i64-server-20110509",
+   "arch": "x86_64",
+   "created_at": "2011-05-09T12:00:00Z",
+   "official": true,
+   "public": true,
+   "owner": "acc-43ks4"},
+ "server_type":
+  {"id": "typ-zx45f",
+   "resource_type": "server_type",
+   "url": "https://api.gb1.brightbox.com/1.0/server_types/typ-zx45f",
+   "name": "Small",
+   "status": "available",
+   "cores": 2,
+   "ram": 2048,
+   "disk_size": 81920,
+   "handle": "small"},
+ "zone":
+  {"id": "zon-328ds",
+   "resource_type": "zone",
+   "url": "https://api.gb1.brightbox.com/1.0/zones/zon-328ds",
+   "handle": "gb1"},
+ "cloud_ips":
+  [{"id": "cip-k4a25",
+    "resource_type": "cloud_ip",
+    "url": "https://api.gb1.brightbox.com/1.0/cloud_ips/cip-k4a25",
+    "status": "mapped",
+    "public_ip": "109.107.50.0",
+    "public_ipv4": "109.107.50.0",
+    "public_ipv6": "2a02:1348:ffff:ffff::6d6b:3200",
+    "fqdn": "cip-k4a25.gb1.brightbox.com",
+    "reverse_dns": null,
+    "name": "product website ip"}],
+ "interfaces":
+  [{"id": "int-ds42k",
+    "resource_type": "interface",
+    "url": "https://api.gb1.brightbox.com/1.0/interfaces/int-ds42k",
+    "mac_address": "02:24:19:00:00:ee",
+    "ipv4_address": "81.15.16.17"}],
+ "snapshots":
+  [],
+ "server_groups":
+  [{"id": "grp-sda44",
+    "resource_type": "server_group",
+    "url": "https://api.gb1.brightbox.com/1.0/server_groups/grp-sda44",
+    "name": "",
+    "description": null,
+    "created_at": "2011-10-01T00:00:00Z",
+    "default": true}]}
+`
+	var result brightbox.Server
+	_ = json.NewDecoder(strings.NewReader(serverjson)).Decode(&result)
+	return &result
 }
