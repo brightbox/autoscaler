@@ -17,9 +17,12 @@ limitations under the License.
 package brightbox
 
 import (
+	"context"
+	"fmt"
 	"strings"
 
 	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk"
+	brightbox "github.com/brightbox/gobrightbox"
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider"
@@ -98,16 +101,63 @@ func (b *brightboxCloudProvider) Refresh() error {
 	nodeGroups := make([]cloudprovider.NodeGroup, 0)
 	nodeMap := make(map[string]string)
 	for _, group := range groups {
-		if strings.HasSuffix(group.Description, clusterSuffix) {
-			nodeGroups = append(nodeGroups, &brightboxNodeGroup{id: group.Id})
+		if strings.HasSuffix(group.Name, clusterSuffix) {
+			groupType, groupImage, groupZone, err :=
+				b.extractGroupDefaults(group.Servers)
+			if err != nil {
+				return err
+			}
+			newNodeGroup := makeNodeGroupFromApiDetails(
+				group.Id,
+				group.Description,
+				len(group.Servers),
+				groupType,
+				groupImage,
+				groupZone,
+			)
 			for _, server := range group.Servers {
 				nodeMap[server.Id] = group.Id
 			}
+			nodeGroups = append(nodeGroups, newNodeGroup)
 		}
 	}
 	b.nodeGroups = nodeGroups
 	b.nodeMap = nodeMap
+	klog.V(4).Infof("Refresh located %v node(s) over %v group(s)", len(nodeMap), len(nodeGroups))
 	return nil
+}
+
+func (b *brightboxCloudProvider) extractGroupDefaults(servers []brightbox.Server) (string, string, string, error) {
+	klog.V(4).Info("extractGroupDefaults")
+	var serverTypeId, imageId, zoneId string
+	for _, serverSummary := range servers {
+		server, err := b.GetServer(
+			context.Background(),
+			serverSummary.Id,
+			fmt.Errorf("Server %s not found", serverSummary.Id),
+		)
+		if err != nil {
+			return "", "", "", err
+		}
+		imageId = checkForChange(imageId, server.Image.Id, "Group has multiple Image Ids")
+		serverTypeId = checkForChange(serverTypeId, server.ServerType.Id, "Group has multiple ServerType Ids")
+		if zoneId == "" {
+			zoneId = server.Zone.Id
+		} else if zoneId != server.Zone.Id {
+			klog.V(4).Info("Group is zone balanced")
+			zoneId = ""
+			break
+		}
+	}
+	return serverTypeId, imageId, zoneId, nil
+}
+
+func checkForChange(currentId string, newId string, errorMessage string) string {
+	if currentId == "" || currentId == newId {
+		return newId
+	}
+	klog.Warning(errorMessage)
+	return currentId
 }
 
 // Pricing returns pricing model for this cloud provider or error if
