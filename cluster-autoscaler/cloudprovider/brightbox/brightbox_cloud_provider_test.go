@@ -21,6 +21,7 @@ import (
 	"flag"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk"
 	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk/mocks"
@@ -119,10 +120,10 @@ func TestNodeGroupForNode(t *testing.T) {
 	client.nodeMap = fakeNodeMap
 	nodeGroup, err := client.NodeGroupForNode(makeNode(fakeServer))
 	assert.Equal(t, fakeNodeGroup, nodeGroup)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	nodeGroup, err = client.NodeGroupForNode(makeNode(missingServer))
 	assert.Nil(t, nodeGroup)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestBuildBrightBox(t *testing.T) {
@@ -139,7 +140,7 @@ func TestBuildBrightBox(t *testing.T) {
 	assert.Equal(t, cloud.Name(), cloudprovider.BrightboxProviderName)
 	obj, err := cloud.GetResourceLimiter()
 	assert.Equal(t, rl, obj)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestRefresh(t *testing.T) {
@@ -150,15 +151,15 @@ func TestRefresh(t *testing.T) {
 	mockclient.On("Server", "srv-lv426").Return(fakeServerlv426(), nil)
 	mockclient.On("Server", "srv-rp897").Return(fakeServerrp897(), nil)
 	err := provider.Refresh()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assert.Len(t, provider.nodeGroups, 1)
 	assert.NotEmpty(t, provider.nodeMap)
 	node, err := provider.NodeGroupForNode(makeNode("srv-lv426"))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	require.NotNil(t, node)
 	assert.Equal(t, node.Id(), "grp-sda44")
 	node, err = provider.NodeGroupForNode(makeNode("srv-rp897"))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	require.NotNil(t, node)
 	assert.Equal(t, node.Id(), "grp-sda44")
 	mockclient.AssertExpectations(t)
@@ -405,5 +406,101 @@ func fakeServerrp897() *brightbox.Server {
 `
 	var result brightbox.Server
 	_ = json.NewDecoder(strings.NewReader(serverjson)).Decode(&result)
+	return &result
+}
+
+func fakeServertesty() *brightbox.Server {
+	const serverjson = `
+{"id": "srv-testy",
+ "resource_type": "server",
+ "url": "https://api.gb1.brightbox.com/1.0/servers/srv-testy",
+ "name": "storage-0.storage.k8s-fake.cluster.local",
+ "status": "active",
+ "locked": false,
+ "hostname": "srv-testy",
+ "created_at": "2011-10-01T01:00:00Z",
+ "started_at": "2011-10-01T01:01:00Z",
+ "deleted_at": null,
+ "user_data": null,
+ "fqdn": "srv-testy.gb1.brightbox.com",
+ "compatibility_mode": false,
+ "console_url": null,
+ "console_token": null,
+ "console_token_expires": null,
+ "account":
+  {"id": "acc-43ks4",
+   "resource_type": "account",
+   "url": "https://api.gb1.brightbox.com/1.0/accounts/acc-43ks4",
+   "name": "Brightbox",
+   "status": "active"},
+ "image":
+  {"id": "img-3ikco",
+   "resource_type": "image",
+   "url": "https://api.gb1.brightbox.com/1.0/images/img-3ikco",
+   "name": "Ubuntu Lucid 10.04 server",
+   "username": "ubuntu",
+   "status": "available",
+   "locked": false,
+   "description": "Expands root partition automatically. login: ubuntu using stored ssh key",
+   "source": "ubuntu-lucid-daily-i64-server-20110509",
+   "arch": "x86_64",
+   "created_at": "2011-05-09T12:00:00Z",
+   "official": true,
+   "public": true,
+   "owner": "acc-43ks4"},
+ "server_type":
+  {"id": "typ-zx45f",
+   "resource_type": "server_type",
+   "url": "https://api.gb1.brightbox.com/1.0/server_types/typ-zx45f",
+   "name": "Small",
+   "status": "available",
+   "cores": 2,
+   "ram": 2048,
+   "disk_size": 81920,
+   "handle": "small"},
+ "zone":
+  {"id": "zon-328ds",
+   "resource_type": "zone",
+   "url": "https://api.gb1.brightbox.com/1.0/zones/zon-328ds",
+   "handle": "gb1"},
+ "cloud_ips":
+  [{"id": "cip-k4a25",
+    "resource_type": "cloud_ip",
+    "url": "https://api.gb1.brightbox.com/1.0/cloud_ips/cip-k4a25",
+    "status": "mapped",
+    "public_ip": "109.107.50.0",
+    "public_ipv4": "109.107.50.0",
+    "public_ipv6": "2a02:1348:ffff:ffff::6d6b:3200",
+    "fqdn": "cip-k4a25.gb1.brightbox.com",
+    "reverse_dns": null,
+    "name": "product website ip"}],
+ "interfaces":
+  [{"id": "int-ds42k",
+    "resource_type": "interface",
+    "url": "https://api.gb1.brightbox.com/1.0/interfaces/int-ds42k",
+    "mac_address": "02:24:19:00:00:ee",
+    "ipv4_address": "81.15.16.17"}],
+ "snapshots":
+  [],
+ "server_groups":
+  [{"id": "grp-testy",
+    "resource_type": "server_group",
+    "url": "https://api.gb1.brightbox.com/1.0/server_groups/grp-testy",
+    "name": "",
+    "description": null,
+    "created_at": "2011-10-01T00:00:00Z",
+    "default": true}]}
+`
+	var result brightbox.Server
+	_ = json.NewDecoder(strings.NewReader(serverjson)).Decode(&result)
+	return &result
+}
+
+func deletedFakeServer(server *brightbox.Server) *brightbox.Server {
+	now := time.Now()
+	result := *server
+	result.DeletedAt = &now
+	result.Status = "deleted"
+	result.ServerGroups = []brightbox.ServerGroup{}
 	return &result
 }
