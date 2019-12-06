@@ -196,7 +196,35 @@ func (ng *brightboxNodeGroup) Debug() string {
 // It is required that Instance objects returned by this method have Id
 // field set.  Other fields are optional.
 func (ng *brightboxNodeGroup) Nodes() ([]cloudprovider.Instance, error) {
-	panic("not implemented") // TODO: Implement
+	klog.V(4).Info("Nodes")
+	group, err := ng.GetServerGroup(ng.Id())
+	if err != nil {
+		return nil, err
+	}
+	nodes := make([]cloudprovider.Instance, len(group.Servers))
+	for i, server := range group.Servers {
+		status := cloudprovider.InstanceStatus{}
+		switch server.Status {
+		case "active":
+			status.State = cloudprovider.InstanceRunning
+		case "creating":
+			status.State = cloudprovider.InstanceCreating
+		case "deleting":
+			status.State = cloudprovider.InstanceDeleting
+		default:
+			errorInfo := cloudprovider.InstanceErrorInfo{
+				ErrorClass:   cloudprovider.OtherErrorClass,
+				ErrorCode:    server.Status,
+				ErrorMessage: server.Status,
+			}
+			status.ErrorInfo = &errorInfo
+		}
+		nodes[i] = cloudprovider.Instance{
+			Id:     server.Id,
+			Status: &status,
+		}
+	}
+	return nodes, nil
 }
 
 // Exist checks if the node group really exists on the cloud provider
