@@ -142,6 +142,24 @@ func TestDeleteNodes(t *testing.T) {
 
 }
 
+func TestExist(t *testing.T) {
+	mockclient := new(mocks.CloudAccess)
+	testclient := k8ssdk.MakeTestClient(mockclient, nil)
+	nodeGroup := makeFakeNodeGroup(testclient)
+	fakeServerGroup := &fakeGroups()[0]
+	t.Run("Find Group", func(t *testing.T) {
+		mockclient.On("ServerGroup", nodeGroup.Id()).
+			Return(fakeServerGroup, nil).Once()
+		assert.True(t, nodeGroup.Exist())
+	})
+	t.Run("Fail to Find Group", func(t *testing.T) {
+		mockclient.On("ServerGroup", nodeGroup.Id()).
+			Return(nil, serverNotFoundError(nodeGroup.Id()))
+		assert.False(t, nodeGroup.Exist())
+	})
+	mockclient.AssertExpectations(t)
+}
+
 func TestTemplateNodeInfo(t *testing.T) {
 	obj, err := makeFakeNodeGroup(nil).TemplateNodeInfo()
 	assert.Equal(t, err, cloudprovider.ErrNotImplemented)
