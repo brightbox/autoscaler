@@ -201,6 +201,7 @@ func (ng *brightboxNodeGroup) Nodes() ([]cloudprovider.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
+	klog.V(4).Infof("Found %d servers in group", len(group.Servers))
 	nodes := make([]cloudprovider.Instance, len(group.Servers))
 	for i, server := range group.Servers {
 		status := cloudprovider.InstanceStatus{}
@@ -224,6 +225,7 @@ func (ng *brightboxNodeGroup) Nodes() ([]cloudprovider.Instance, error) {
 			Status: &status,
 		}
 	}
+	klog.V(4).Infof("Created %d nodes", len(nodes))
 	return nodes, nil
 }
 
