@@ -203,7 +203,9 @@ func (ng *brightboxNodeGroup) Nodes() ([]cloudprovider.Instance, error) {
 // side. Allows to tell the theoretical node group from the real
 // one. Implementation required.
 func (ng *brightboxNodeGroup) Exist() bool {
-	panic("not implemented") // TODO: Implement
+	klog.V(4).Info("Exist")
+	_, err := ng.GetServerGroup(ng.Id())
+	return err == nil
 }
 
 // TemplateNodeInfo returns a schedulernodeinfo.NodeInfo structure
