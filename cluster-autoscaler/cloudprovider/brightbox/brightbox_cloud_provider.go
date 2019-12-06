@@ -18,7 +18,6 @@ package brightbox
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk"
@@ -114,6 +113,7 @@ func (b *brightboxCloudProvider) Refresh() error {
 				groupType,
 				groupImage,
 				groupZone,
+				b.Cloud,
 			)
 			for _, server := range group.Servers {
 				nodeMap[server.Id] = group.Id
@@ -134,7 +134,7 @@ func (b *brightboxCloudProvider) extractGroupDefaults(servers []brightbox.Server
 		server, err := b.GetServer(
 			context.Background(),
 			serverSummary.Id,
-			fmt.Errorf("Server %s not found", serverSummary.Id),
+			serverNotFoundError(serverSummary.Id),
 		)
 		if err != nil {
 			return "", "", "", err
