@@ -23,6 +23,7 @@ import (
 	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk"
 	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider"
 )
@@ -39,7 +40,57 @@ const (
 )
 
 var (
-	fakeError = errors.New("Fake API Error")
+	fakeError     = errors.New("Fake API Error")
+	fakeInstances = []cloudprovider.Instance{
+		cloudprovider.Instance{
+			Id: "srv-rp897",
+			Status: &cloudprovider.InstanceStatus{
+				State: cloudprovider.InstanceRunning,
+			},
+		},
+		cloudprovider.Instance{
+			Id: "srv-lv426",
+			Status: &cloudprovider.InstanceStatus{
+				State: cloudprovider.InstanceRunning,
+			},
+		},
+	}
+	fakeTransitionInstances = []cloudprovider.Instance{
+		cloudprovider.Instance{
+			Id: "srv-rp897",
+			Status: &cloudprovider.InstanceStatus{
+				State: cloudprovider.InstanceDeleting,
+			},
+		},
+		cloudprovider.Instance{
+			Id: "srv-lv426",
+			Status: &cloudprovider.InstanceStatus{
+				State: cloudprovider.InstanceCreating,
+			},
+		},
+	}
+	fakeErrorInstances = []cloudprovider.Instance{
+		cloudprovider.Instance{
+			Id: "srv-rp897",
+			Status: &cloudprovider.InstanceStatus{
+				ErrorInfo: &cloudprovider.InstanceErrorInfo{
+					ErrorClass:   cloudprovider.OtherErrorClass,
+					ErrorCode:    "unavailable",
+					ErrorMessage: "unavailable",
+				},
+			},
+		},
+		cloudprovider.Instance{
+			Id: "srv-lv426",
+			Status: &cloudprovider.InstanceStatus{
+				ErrorInfo: &cloudprovider.InstanceErrorInfo{
+					ErrorClass:   cloudprovider.OtherErrorClass,
+					ErrorCode:    "inactive",
+					ErrorMessage: "inactive",
+				},
+			},
+		},
+	}
 )
 
 func TestMaxSize(t *testing.T) {
@@ -158,6 +209,36 @@ func TestExist(t *testing.T) {
 		assert.False(t, nodeGroup.Exist())
 	})
 	mockclient.AssertExpectations(t)
+}
+
+func TestNodes(t *testing.T) {
+	mockclient := new(mocks.CloudAccess)
+	testclient := k8ssdk.MakeTestClient(mockclient, nil)
+	nodeGroup := makeFakeNodeGroup(testclient)
+	fakeServerGroup := fakeGroups()[0]
+	mockclient.On("ServerGroup", fakeNodeGroupId).
+		Return(&fakeServerGroup, nil)
+	t.Run("Both Active", func(t *testing.T) {
+		fakeServerGroup.Servers[0].Status = "active"
+		fakeServerGroup.Servers[1].Status = "active"
+		nodes, err := nodeGroup.Nodes()
+		require.NoError(t, err)
+		assert.ElementsMatch(t, fakeInstances, nodes)
+	})
+	t.Run("Creating and Deleting", func(t *testing.T) {
+		fakeServerGroup.Servers[0].Status = "creating"
+		fakeServerGroup.Servers[1].Status = "deleting"
+		nodes, err := nodeGroup.Nodes()
+		require.NoError(t, err)
+		assert.ElementsMatch(t, fakeTransitionInstances, nodes)
+	})
+	t.Run("Inactive and Unavailable", func(t *testing.T) {
+		fakeServerGroup.Servers[0].Status = "inactive"
+		fakeServerGroup.Servers[1].Status = "unavailable"
+		nodes, err := nodeGroup.Nodes()
+		require.NoError(t, err)
+		assert.ElementsMatch(t, fakeErrorInstances, nodes)
+	})
 }
 
 func TestTemplateNodeInfo(t *testing.T) {
