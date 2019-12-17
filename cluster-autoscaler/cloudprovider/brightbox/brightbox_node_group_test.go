@@ -105,10 +105,10 @@ func TestSize(t *testing.T) {
 	mockclient := new(mocks.CloudAccess)
 	testclient := k8ssdk.MakeTestClient(mockclient, nil)
 	nodeGroup := makeFakeNodeGroup(testclient)
-	fakeServerGroup := fakeGroups()[0]
+	fakeServerGroup := &fakeGroups()[0]
 	t.Run("TargetSize", func(t *testing.T) {
 		mockclient.On("ServerGroup", fakeNodeGroupId).
-			Return(&fakeServerGroup, nil).Once()
+			Return(fakeServerGroup, nil).Once()
 		size, err := nodeGroup.TargetSize()
 		assert.Equal(t, 2, size)
 		assert.NoError(t, err)
@@ -122,7 +122,7 @@ func TestSize(t *testing.T) {
 	})
 	t.Run("CurrentSize", func(t *testing.T) {
 		mockclient.On("ServerGroup", fakeNodeGroupId).
-			Return(&fakeServerGroup, nil).Once()
+			Return(fakeServerGroup, nil).Once()
 		size, err := nodeGroup.CurrentSize()
 		assert.Equal(t, 2, size)
 		assert.NoError(t, err)
@@ -135,7 +135,7 @@ func TestSize(t *testing.T) {
 		assert.Zero(t, size)
 	})
 	mockclient.On("ServerGroup", fakeNodeGroupId).
-		Return(&fakeServerGroup, nil)
+		Return(fakeServerGroup, nil)
 	t.Run("DecreaseTargetSizePositive", func(t *testing.T) {
 		err := nodeGroup.DecreaseTargetSize(0)
 		assert.Error(t, err)
@@ -147,13 +147,30 @@ func TestSize(t *testing.T) {
 	mockclient.AssertExpectations(t)
 }
 
+func TestIncreaseSize(t *testing.T) {
+	mockclient := new(mocks.CloudAccess)
+	testclient := k8ssdk.MakeTestClient(mockclient, nil)
+	nodeGroup := makeFakeNodeGroup(testclient)
+	t.Run("Require positive delta", func(t *testing.T) {
+		err := nodeGroup.IncreaseSize(0)
+		assert.Error(t, err)
+	})
+	fakeServerGroup := &fakeGroups()[0]
+	t.Run("Don't exceed max size", func(t *testing.T) {
+		mockclient.On("ServerGroup", fakeNodeGroupId).
+			Return(fakeServerGroup, nil).Once()
+		err := nodeGroup.IncreaseSize(4)
+		assert.Error(t, err)
+	})
+}
+
 func TestDeleteNodes(t *testing.T) {
 	mockclient := new(mocks.CloudAccess)
 	testclient := k8ssdk.MakeTestClient(mockclient, nil)
 	nodeGroup := makeFakeNodeGroup(testclient)
-	fakeServerGroup := fakeGroups()[0]
+	fakeServerGroup := &fakeGroups()[0]
 	mockclient.On("ServerGroup", fakeNodeGroupId).
-		Return(&fakeServerGroup, nil).
+		Return(fakeServerGroup, nil).
 		On("Server", fakeServer).
 		Return(fakeServertesty(), nil)
 	t.Run("Empty Nodes", func(t *testing.T) {
@@ -176,7 +193,7 @@ func TestDeleteNodes(t *testing.T) {
 		assert.NoError(t, err)
 	})
 	t.Run("Delete All Nodes", func(t *testing.T) {
-		truncateServers := mocks.ServerListReducer(&fakeServerGroup)
+		truncateServers := mocks.ServerListReducer(fakeServerGroup)
 		mockclient.On("Server", "srv-rp897").
 			Return(fakeServerrp897(), nil).Once().
 			On("Server", "srv-rp897").
@@ -215,9 +232,9 @@ func TestNodes(t *testing.T) {
 	mockclient := new(mocks.CloudAccess)
 	testclient := k8ssdk.MakeTestClient(mockclient, nil)
 	nodeGroup := makeFakeNodeGroup(testclient)
-	fakeServerGroup := fakeGroups()[0]
+	fakeServerGroup := &fakeGroups()[0]
 	mockclient.On("ServerGroup", fakeNodeGroupId).
-		Return(&fakeServerGroup, nil)
+		Return(fakeServerGroup, nil)
 	t.Run("Both Active", func(t *testing.T) {
 		fakeServerGroup.Servers[0].Status = "active"
 		fakeServerGroup.Servers[1].Status = "active"
