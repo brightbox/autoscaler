@@ -18,6 +18,7 @@ package brightbox
 
 import (
 	"context"
+	"os"
 	"strings"
 
 	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk"
@@ -31,11 +32,17 @@ import (
 )
 
 const (
-	GPULabel = "cloud.brightbox.com/gpu-node"
+	GPULabel        = "cloud.brightbox.com/gpu-node"
+	bootTokenEnvVar = "BRIGHTBOX_KUBE_BOOT_TOKEN"
+	caHashEnvVar    = "BRIGHTBOX_KUBE_CA_HASH"
 )
 
 var (
 	availableGPUTypes = map[string]struct{}{}
+	k8sEnvVars        = []string{
+		bootTokenEnvVar,
+		caHashEnvVar,
+	}
 )
 
 // brightboxCloudProvider implements cloudprovider.CloudProvider interface
@@ -225,6 +232,7 @@ func BuildBrightbox(
 	if opts.ClusterName == "" {
 		klog.Fatal("Set the cluster name option to the Fully Qualified Internal Domain Name of the cluster")
 	}
+	validateEnvironment()
 	newCloudProvider := &brightboxCloudProvider{
 		ClusterName:     opts.ClusterName,
 		resourceLimiter: rl,
@@ -235,4 +243,12 @@ func BuildBrightbox(
 		klog.Fatalf("Failed to create Brightbox Cloud Client: %v", err)
 	}
 	return newCloudProvider
+}
+
+func validateEnvironment() {
+	for _, envVar := range k8sEnvVars {
+		if _, ok := os.LookupEnv(envVar); !ok {
+			klog.Fatalf("Required Environment Variable %q not set", envVar)
+		}
+	}
 }
