@@ -19,6 +19,8 @@ package brightbox
 import (
 	"encoding/json"
 	"flag"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -128,8 +130,11 @@ func TestNodeGroupForNode(t *testing.T) {
 
 func TestBuildBrightBox(t *testing.T) {
 	ts := k8ssdk.GetAuthEnvTokenHandler(t)
+	defer resetK8sEnvironment()
 	defer k8ssdk.ResetAuthEnvironment()
 	defer ts.Close()
+	setK8sEnvBootToken()
+	setK8sEnvCaHash()
 	rl := cloudprovider.NewResourceLimiter(nil, nil)
 	do := cloudprovider.NodeGroupDiscoveryOptions{}
 	opts := config.AutoscalingOptions{
@@ -141,6 +146,71 @@ func TestBuildBrightBox(t *testing.T) {
 	obj, err := cloud.GetResourceLimiter()
 	assert.Equal(t, rl, obj)
 	assert.NoError(t, err)
+}
+
+func testOsExit(t *testing.T, funcName string, testFunc func(*testing.T)) {
+	if os.Getenv(funcName) == "1" {
+		testFunc(t)
+		return
+	}
+	cmd := exec.Command(os.Args[0], "-test.run="+funcName)
+	cmd.Env = append(os.Environ(), funcName+"=1")
+	err := cmd.Run()
+	if e, ok := err.(*exec.ExitError); ok && !e.Success() {
+		return
+	}
+	t.Fatalf("%s subprocess ran successfully, want non-zero exit status", funcName)
+}
+
+func TestBuildBrightboxMissingClusterName(t *testing.T) {
+	testOsExit(t, "TestBuildBrightboxMissingClusterName", func(t *testing.T) {
+		ts := k8ssdk.GetAuthEnvTokenHandler(t)
+		defer resetK8sEnvironment()
+		defer k8ssdk.ResetAuthEnvironment()
+		defer ts.Close()
+		setK8sEnvBootToken()
+		setK8sEnvCaHash()
+		rl := cloudprovider.NewResourceLimiter(nil, nil)
+		do := cloudprovider.NodeGroupDiscoveryOptions{}
+		opts := config.AutoscalingOptions{
+			CloudProviderName: cloudprovider.BrightboxProviderName,
+		}
+		BuildBrightbox(opts, do, rl)
+	})
+}
+
+func TestBuildBrightboxMissingBootToken(t *testing.T) {
+	testOsExit(t, "TestBuildBrightboxMissingBootToken", func(t *testing.T) {
+		ts := k8ssdk.GetAuthEnvTokenHandler(t)
+		defer resetK8sEnvironment()
+		defer k8ssdk.ResetAuthEnvironment()
+		defer ts.Close()
+		setK8sEnvCaHash()
+		rl := cloudprovider.NewResourceLimiter(nil, nil)
+		do := cloudprovider.NodeGroupDiscoveryOptions{}
+		opts := config.AutoscalingOptions{
+			CloudProviderName: cloudprovider.BrightboxProviderName,
+			ClusterName:       fakeClusterName,
+		}
+		BuildBrightbox(opts, do, rl)
+	})
+}
+
+func TestBuildBrightboxMissingCaHash(t *testing.T) {
+	testOsExit(t, "TestBuildBrightboxMissingClusterName", func(t *testing.T) {
+		ts := k8ssdk.GetAuthEnvTokenHandler(t)
+		defer resetK8sEnvironment()
+		defer k8ssdk.ResetAuthEnvironment()
+		defer ts.Close()
+		setK8sEnvBootToken()
+		rl := cloudprovider.NewResourceLimiter(nil, nil)
+		do := cloudprovider.NodeGroupDiscoveryOptions{}
+		opts := config.AutoscalingOptions{
+			CloudProviderName: cloudprovider.BrightboxProviderName,
+			ClusterName:       fakeClusterName,
+		}
+		BuildBrightbox(opts, do, rl)
+	})
 }
 
 func TestRefresh(t *testing.T) {
@@ -503,4 +573,18 @@ func deletedFakeServer(server *brightbox.Server) *brightbox.Server {
 	result.Status = "deleted"
 	result.ServerGroups = []brightbox.ServerGroup{}
 	return &result
+}
+
+func setK8sEnvBootToken() {
+	os.Setenv(bootTokenEnvVar, "123456.abcdefghijklmnop")
+}
+
+func setK8sEnvCaHash() {
+	os.Setenv(caHashEnvVar, "d8d1e4c0f41fe0ed74ccbbef95d247c040999d6661c198fd8456d2670cfe458d")
+}
+
+func resetK8sEnvironment() {
+	for _, envvar := range k8sEnvVars {
+		os.Unsetenv(envvar)
+	}
 }
