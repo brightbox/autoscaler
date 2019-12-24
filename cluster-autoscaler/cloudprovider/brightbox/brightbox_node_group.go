@@ -27,6 +27,7 @@ type brightboxNodeGroup struct {
 	serverTypeId string
 	imageId      string
 	zoneId       string
+	mainGroupId  string
 	*k8ssdk.Cloud
 }
 
@@ -276,6 +277,7 @@ func makeNodeGroupFromApiDetails(
 	defaultServerTypeId string,
 	defaultImageId string,
 	defaultZoneId string,
+	defaultMainGroupId string,
 	cloudclient *k8ssdk.Cloud,
 ) *brightboxNodeGroup {
 	klog.V(4).Info("makeNodeGroupFromApiDetails")
@@ -288,6 +290,7 @@ func makeNodeGroupFromApiDetails(
 		serverTypeId: defaultServerTypeId,
 		imageId:      defaultImageId,
 		zoneId:       defaultZoneId,
+		mainGroupId:  defaultMainGroupId,
 		Cloud:        cloudclient,
 	}
 	sizes := strings.Split(description, ":")

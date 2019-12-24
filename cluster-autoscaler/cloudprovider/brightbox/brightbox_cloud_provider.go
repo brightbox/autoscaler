@@ -106,6 +106,7 @@ func (b *brightboxCloudProvider) Refresh() error {
 	clusterSuffix := "." + b.ClusterName
 	nodeGroups := make([]cloudprovider.NodeGroup, 0)
 	nodeMap := make(map[string]string)
+	defaultGroup := fetchDefaultGroup(groups, b.ClusterName)
 	for _, group := range groups {
 		if strings.HasSuffix(group.Name, clusterSuffix) {
 			groupType, groupImage, groupZone, err :=
@@ -120,6 +121,7 @@ func (b *brightboxCloudProvider) Refresh() error {
 				groupType,
 				groupImage,
 				groupZone,
+				defaultGroup,
 				b.Cloud,
 			)
 			for _, server := range group.Servers {
@@ -132,6 +134,16 @@ func (b *brightboxCloudProvider) Refresh() error {
 	b.nodeMap = nodeMap
 	klog.V(4).Infof("Refresh located %v node(s) over %v group(s)", len(nodeMap), len(nodeGroups))
 	return nil
+}
+
+func fetchDefaultGroup(groups []brightbox.ServerGroup, clusterName string) string {
+	for _, group := range groups {
+		if group.Name == clusterName {
+			return group.Id
+		}
+	}
+	klog.Warningf("Unable to detect main group for cluster %q", clusterName)
+	return ""
 }
 
 func (b *brightboxCloudProvider) extractGroupDefaults(servers []brightbox.Server) (string, string, string, error) {
