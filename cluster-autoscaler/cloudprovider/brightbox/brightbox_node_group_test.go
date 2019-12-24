@@ -37,6 +37,7 @@ const (
 	fakeImageId      = "img-testy"
 	fakeServerTypeId = "typ-testy"
 	fakeZoneId       = "zon-testy"
+	fakeMainGroupId  = "grp-y6cai"
 )
 
 var (
@@ -286,6 +287,7 @@ func makeFakeNodeGroup(brightboxCloudClient *k8ssdk.Cloud) *brightboxNodeGroup {
 		fakeServerTypeId,
 		fakeImageId,
 		fakeZoneId,
+		fakeMainGroupId,
 		brightboxCloudClient,
 	)
 }
