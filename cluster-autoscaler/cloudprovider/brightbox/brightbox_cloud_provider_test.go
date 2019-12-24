@@ -235,6 +235,14 @@ func TestRefresh(t *testing.T) {
 	mockclient.AssertExpectations(t)
 }
 
+func TestFetchDefaultGroup(t *testing.T) {
+	groups := fakeGroups()
+	groupId := fetchDefaultGroup(groups, "fred")
+	assert.Empty(t, groupId)
+	groupId = fetchDefaultGroup(groups, groups[0].Name)
+	assert.Equal(t, groups[0].Id, groupId)
+}
+
 func makeNode(serverID string) *v1.Node {
 	return &v1.Node{
 		Spec: v1.NodeSpec{
