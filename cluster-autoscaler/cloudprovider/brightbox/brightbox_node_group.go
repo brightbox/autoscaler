@@ -22,6 +22,7 @@ var (
 
 type brightboxNodeGroup struct {
 	id           string
+	name         string
 	minSize      int
 	maxSize      int
 	serverTypeId string
@@ -272,6 +273,7 @@ func (ng *brightboxNodeGroup) Autoprovisioned() bool {
 
 func makeNodeGroupFromApiDetails(
 	id string,
+	name string,
 	description string,
 	defaultSize int,
 	defaultServerTypeId string,
@@ -285,6 +287,7 @@ func makeNodeGroupFromApiDetails(
 	klog.V(4).Infof("Default size: %v", defaultSize)
 	result := brightboxNodeGroup{
 		id:           id,
+		name:         name,
 		minSize:      defaultSize,
 		maxSize:      defaultSize,
 		serverTypeId: defaultServerTypeId,
