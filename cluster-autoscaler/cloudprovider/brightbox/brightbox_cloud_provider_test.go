@@ -217,7 +217,8 @@ func TestRefresh(t *testing.T) {
 	mockclient := new(mocks.CloudAccess)
 	testclient := k8ssdk.MakeTestClient(mockclient, nil)
 	provider := makeFakeCloudProvider(testclient)
-	mockclient.On("ServerGroups").Return(fakeGroups(), nil)
+	groups := fakeGroups()
+	mockclient.On("ServerGroups").Return(groups, nil)
 	mockclient.On("Server", "srv-lv426").Return(fakeServerlv426(), nil)
 	mockclient.On("Server", "srv-rp897").Return(fakeServerrp897(), nil)
 	err := provider.Refresh()
@@ -227,11 +228,11 @@ func TestRefresh(t *testing.T) {
 	node, err := provider.NodeGroupForNode(makeNode("srv-lv426"))
 	assert.NoError(t, err)
 	require.NotNil(t, node)
-	assert.Equal(t, node.Id(), "grp-sda44")
+	assert.Equal(t, node.Id(), groups[0].Id)
 	node, err = provider.NodeGroupForNode(makeNode("srv-rp897"))
 	assert.NoError(t, err)
 	require.NotNil(t, node)
-	assert.Equal(t, node.Id(), "grp-sda44")
+	assert.Equal(t, node.Id(), groups[0].Id)
 	mockclient.AssertExpectations(t)
 }
 
