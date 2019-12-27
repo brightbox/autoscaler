@@ -29,15 +29,16 @@ import (
 )
 
 const (
-	fakeMaxSize      = 4
-	fakeMinSize      = 1
-	fakeDescription  = "1:4"
-	fakeDefaultSize  = 3
-	fakeNodeGroupId  = "grp-sda44"
-	fakeImageId      = "img-testy"
-	fakeServerTypeId = "typ-testy"
-	fakeZoneId       = "zon-testy"
-	fakeMainGroupId  = "grp-y6cai"
+	fakeMaxSize               = 4
+	fakeMinSize               = 1
+	fakeNodeGroupDescription  = "1:4"
+	fakeDefaultSize           = 3
+	fakeNodeGroupId           = "grp-sda44"
+	fakeNodeGroupName         = "workers.k8s_fake.cluster.local"
+	fakeNodeGroupImageId      = "img-testy"
+	fakeNodeGroupServerTypeId = "typ-testy"
+	fakeNodeGroupZoneId       = "zon-testy"
+	fakeNodeGroupMainGroupId  = "grp-y6cai"
 )
 
 var (
@@ -152,6 +153,14 @@ func TestIncreaseSize(t *testing.T) {
 	mockclient := new(mocks.CloudAccess)
 	testclient := k8ssdk.MakeTestClient(mockclient, nil)
 	nodeGroup := makeFakeNodeGroup(testclient)
+	t.Run("Creating details set properly", func(t *testing.T) {
+		assert.Equal(t, fakeNodeGroupId, nodeGroup.id)
+		assert.Equal(t, fakeNodeGroupName, nodeGroup.name)
+		assert.Equal(t, fakeNodeGroupServerTypeId, nodeGroup.serverTypeId)
+		assert.Equal(t, fakeNodeGroupImageId, nodeGroup.imageId)
+		assert.Equal(t, fakeNodeGroupZoneId, nodeGroup.zoneId)
+		assert.Equal(t, fakeNodeGroupMainGroupId, nodeGroup.mainGroupId)
+	})
 	t.Run("Require positive delta", func(t *testing.T) {
 		err := nodeGroup.IncreaseSize(0)
 		assert.Error(t, err)
@@ -163,6 +172,7 @@ func TestIncreaseSize(t *testing.T) {
 		err := nodeGroup.IncreaseSize(4)
 		assert.Error(t, err)
 	})
+
 }
 
 func TestDeleteNodes(t *testing.T) {
@@ -282,12 +292,13 @@ func TestAutoprovisioned(t *testing.T) {
 func makeFakeNodeGroup(brightboxCloudClient *k8ssdk.Cloud) *brightboxNodeGroup {
 	return makeNodeGroupFromApiDetails(
 		fakeNodeGroupId,
-		fakeDescription,
+		fakeNodeGroupName,
+		fakeNodeGroupDescription,
 		fakeDefaultSize,
-		fakeServerTypeId,
-		fakeImageId,
-		fakeZoneId,
-		fakeMainGroupId,
+		fakeNodeGroupServerTypeId,
+		fakeNodeGroupImageId,
+		fakeNodeGroupZoneId,
+		fakeNodeGroupMainGroupId,
 		brightboxCloudClient,
 	)
 }
