@@ -116,6 +116,7 @@ func (b *brightboxCloudProvider) Refresh() error {
 			}
 			newNodeGroup := makeNodeGroupFromApiDetails(
 				group.Id,
+				group.Name,
 				group.Description,
 				len(group.Servers),
 				groupType,
