@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk"
+	brightbox "github.com/brightbox/gobrightbox"
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider"
@@ -21,14 +22,10 @@ var (
 )
 
 type brightboxNodeGroup struct {
-	id           string
-	name         string
-	minSize      int
-	maxSize      int
-	serverTypeId string
-	imageId      string
-	zoneId       string
-	mainGroupId  string
+	id            string
+	minSize       int
+	maxSize       int
+	serverOptions *brightbox.ServerOptions
 	*k8ssdk.Cloud
 }
 
@@ -76,10 +73,33 @@ func (ng *brightboxNodeGroup) IncreaseSize(delta int) error {
 	if err != nil {
 		return err
 	}
-	if size+delta > ng.MaxSize() {
-		return fmt.Errorf("size increase too large - desired:%d max:%d", size+delta, ng.MaxSize())
+	desiredSize := size + delta
+	if desiredSize > ng.MaxSize() {
+		return fmt.Errorf("size increase too large - desired:%d max:%d", desiredSize, ng.MaxSize())
 	}
-	panic("not implemented") // TODO: Implement
+	err = ng.createServers(delta)
+	if err != nil {
+		return err
+	}
+	return wait.Poll(
+		checkInterval,
+		checkTimeout,
+		func() (bool, error) {
+			size, err := ng.TargetSize()
+			return err == nil && size >= desiredSize, err
+		},
+	)
+}
+
+func (ng *brightboxNodeGroup) createServers(amount int) error {
+	klog.V(4).Infof("creating %d servers", amount)
+	for i := 1; i <= amount; i++ {
+		_, err := ng.CreateServer(ng.serverOptions)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DeleteNodes deletes nodes from this node group. Error is returned
@@ -280,21 +300,26 @@ func makeNodeGroupFromApiDetails(
 	defaultImageId string,
 	defaultZoneId string,
 	defaultMainGroupId string,
+	defaultUserData string,
 	cloudclient *k8ssdk.Cloud,
 ) *brightboxNodeGroup {
 	klog.V(4).Info("makeNodeGroupFromApiDetails")
 	klog.V(4).Infof("Group: %s, Description: %s", id, description)
 	klog.V(4).Infof("Default size: %v", defaultSize)
+	options := &brightbox.ServerOptions{
+		Image:        defaultImageId,
+		Name:         &name,
+		ServerType:   defaultServerTypeId,
+		Zone:         defaultZoneId,
+		UserData:     &defaultUserData,
+		ServerGroups: []string{defaultMainGroupId, id},
+	}
 	result := brightboxNodeGroup{
-		id:           id,
-		name:         name,
-		minSize:      defaultSize,
-		maxSize:      defaultSize,
-		serverTypeId: defaultServerTypeId,
-		imageId:      defaultImageId,
-		zoneId:       defaultZoneId,
-		mainGroupId:  defaultMainGroupId,
-		Cloud:        cloudclient,
+		id:            id,
+		minSize:       defaultSize,
+		maxSize:       defaultSize,
+		serverOptions: options,
+		Cloud:         cloudclient,
 	}
 	sizes := strings.Split(description, ":")
 	if len(sizes) == 2 {

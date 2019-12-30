@@ -19,6 +19,7 @@ package brightbox
 import (
 	"context"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk"
@@ -32,16 +33,16 @@ import (
 )
 
 const (
-	GPULabel        = "cloud.brightbox.com/gpu-node"
-	bootTokenEnvVar = "BRIGHTBOX_KUBE_BOOT_TOKEN"
-	caHashEnvVar    = "BRIGHTBOX_KUBE_CA_HASH"
+	GPULabel          = "cloud.brightbox.com/gpu-node"
+	joinCommandEnvVar = "BRIGHTBOX_KUBE_JOIN_COMMAND"
+	k8sVersionEnvVar  = "BRIGHTBOX_KUBE_VERSION"
 )
 
 var (
 	availableGPUTypes = map[string]struct{}{}
 	k8sEnvVars        = []string{
-		bootTokenEnvVar,
-		caHashEnvVar,
+		joinCommandEnvVar,
+		k8sVersionEnvVar,
 	}
 )
 
@@ -116,13 +117,17 @@ func (b *brightboxCloudProvider) Refresh() error {
 			}
 			newNodeGroup := makeNodeGroupFromApiDetails(
 				group.Id,
-				group.Name,
+				defaultServerName(group.Name),
 				group.Description,
 				len(group.Servers),
 				groupType,
 				groupImage,
 				groupZone,
 				defaultGroup,
+				defaultUserData(
+					os.Getenv(k8sVersionEnvVar),
+					os.Getenv(joinCommandEnvVar),
+				),
 				b.Cloud,
 			)
 			for _, server := range group.Servers {
@@ -135,6 +140,12 @@ func (b *brightboxCloudProvider) Refresh() error {
 	b.nodeMap = nodeMap
 	klog.V(4).Infof("Refresh located %v node(s) over %v group(s)", len(nodeMap), len(nodeGroups))
 	return nil
+}
+
+func defaultServerName(name string) string {
+	klog.V(4).Info("defaultServerName")
+	klog.V(4).Infof("group name is %q", name)
+	return "auto." + name
 }
 
 func fetchDefaultGroup(groups []brightbox.ServerGroup, clusterName string) string {
@@ -246,6 +257,7 @@ func BuildBrightbox(
 		klog.Fatal("Set the cluster name option to the Fully Qualified Internal Domain Name of the cluster")
 	}
 	validateEnvironment()
+	validateJoinCommand()
 	newCloudProvider := &brightboxCloudProvider{
 		ClusterName:     opts.ClusterName,
 		resourceLimiter: rl,
@@ -263,5 +275,12 @@ func validateEnvironment() {
 		if _, ok := os.LookupEnv(envVar); !ok {
 			klog.Fatalf("Required Environment Variable %q not set", envVar)
 		}
+	}
+}
+
+func validateJoinCommand() {
+	re := regexp.MustCompile(`^kubeadm +join +[0-9\.]+:[0-9]+ +--token +[a-z0-9]{6}\.[a-z0-9]{16} +--discovery-token-ca-cert-hash +sha256:[0-9a-f]+$`)
+	if !re.MatchString(os.Getenv(joinCommandEnvVar)) {
+		klog.Fatalf("Join Command does not match sanitisation pattern")
 	}
 }
