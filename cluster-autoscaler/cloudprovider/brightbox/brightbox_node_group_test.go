@@ -23,6 +23,7 @@ import (
 	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk"
 	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider"
@@ -34,11 +35,12 @@ const (
 	fakeNodeGroupDescription  = "1:4"
 	fakeDefaultSize           = 3
 	fakeNodeGroupId           = "grp-sda44"
-	fakeNodeGroupName         = "workers.k8s_fake.cluster.local"
+	fakeNodeGroupName         = "auto.workers.k8s_fake.cluster.local"
 	fakeNodeGroupImageId      = "img-testy"
 	fakeNodeGroupServerTypeId = "typ-testy"
 	fakeNodeGroupZoneId       = "zon-testy"
 	fakeNodeGroupMainGroupId  = "grp-y6cai"
+	fakeNodeGroupUserData     = "fake userdata"
 )
 
 var (
@@ -155,11 +157,12 @@ func TestIncreaseSize(t *testing.T) {
 	nodeGroup := makeFakeNodeGroup(testclient)
 	t.Run("Creating details set properly", func(t *testing.T) {
 		assert.Equal(t, fakeNodeGroupId, nodeGroup.id)
-		assert.Equal(t, fakeNodeGroupName, nodeGroup.name)
-		assert.Equal(t, fakeNodeGroupServerTypeId, nodeGroup.serverTypeId)
-		assert.Equal(t, fakeNodeGroupImageId, nodeGroup.imageId)
-		assert.Equal(t, fakeNodeGroupZoneId, nodeGroup.zoneId)
-		assert.Equal(t, fakeNodeGroupMainGroupId, nodeGroup.mainGroupId)
+		assert.Equal(t, fakeNodeGroupName, *nodeGroup.serverOptions.Name)
+		assert.Equal(t, fakeNodeGroupServerTypeId, nodeGroup.serverOptions.ServerType)
+		assert.Equal(t, fakeNodeGroupImageId, nodeGroup.serverOptions.Image)
+		assert.Equal(t, fakeNodeGroupZoneId, nodeGroup.serverOptions.Zone)
+		assert.ElementsMatch(t, []string{fakeNodeGroupMainGroupId, fakeNodeGroupId}, nodeGroup.serverOptions.ServerGroups)
+		assert.Equal(t, fakeNodeGroupUserData, *nodeGroup.serverOptions.UserData)
 	})
 	t.Run("Require positive delta", func(t *testing.T) {
 		err := nodeGroup.IncreaseSize(0)
@@ -172,7 +175,24 @@ func TestIncreaseSize(t *testing.T) {
 		err := nodeGroup.IncreaseSize(4)
 		assert.Error(t, err)
 	})
-
+	t.Run("Fail to create one new server", func(t *testing.T) {
+		mockclient.On("ServerGroup", fakeNodeGroupId).
+			Return(fakeServerGroup, nil).Once()
+		mockclient.On("CreateServer", mock.Anything).
+			Return(nil, fakeError).Once()
+		err := nodeGroup.IncreaseSize(1)
+		assert.Error(t, err)
+	})
+	t.Run("Create one new server", func(t *testing.T) {
+		mockclient.On("ServerGroup", fakeNodeGroupId).
+			Return(fakeServerGroup, nil).Once()
+		mockclient.On("CreateServer", mock.Anything).
+			Return(nil, nil).Once()
+		mockclient.On("ServerGroup", fakeNodeGroupId).
+			Return(&fakeServerGroupsPlusOne()[0], nil).Once()
+		err := nodeGroup.IncreaseSize(1)
+		assert.NoError(t, err)
+	})
 }
 
 func TestDeleteNodes(t *testing.T) {
@@ -299,6 +319,7 @@ func makeFakeNodeGroup(brightboxCloudClient *k8ssdk.Cloud) *brightboxNodeGroup {
 		fakeNodeGroupImageId,
 		fakeNodeGroupZoneId,
 		fakeNodeGroupMainGroupId,
+		fakeNodeGroupUserData,
 		brightboxCloudClient,
 	)
 }
