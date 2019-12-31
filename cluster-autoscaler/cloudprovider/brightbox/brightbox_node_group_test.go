@@ -20,8 +20,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk"
-	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk/mocks"
+	"github.com/brightbox/k8ssdk"
+	"github.com/brightbox/k8ssdk/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
