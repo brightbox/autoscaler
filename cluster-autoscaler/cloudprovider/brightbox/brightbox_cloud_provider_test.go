@@ -25,9 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk"
-	"github.com/brightbox/brightbox-cloud-controller-manager/k8ssdk/mocks"
 	brightbox "github.com/brightbox/gobrightbox"
+	"github.com/brightbox/k8ssdk"
+	"github.com/brightbox/k8ssdk/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
