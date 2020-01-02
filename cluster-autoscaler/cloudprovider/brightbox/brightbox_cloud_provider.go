@@ -57,13 +57,13 @@ type brightboxCloudProvider struct {
 
 // Name returns name of the cloud provider.
 func (b *brightboxCloudProvider) Name() string {
-	klog.V(4).Info("Name called")
+	klog.V(4).Info("Name")
 	return cloudprovider.BrightboxProviderName
 }
 
 // NodeGroups returns all node groups configured for this cloud provider.
 func (b *brightboxCloudProvider) NodeGroups() []cloudprovider.NodeGroup {
-	klog.V(4).Info("NodeGroups called")
+	klog.V(4).Info("NodeGroups")
 	// Duplicate the stored nodegroup elements and return it
 	//return append(b.nodeGroups[:0:0], b.nodeGroups...)
 	// Or just return the stored nodegroup elements by reference
@@ -74,7 +74,7 @@ func (b *brightboxCloudProvider) NodeGroups() []cloudprovider.NodeGroup {
 // the node should not be processed by cluster autoscaler, or non-nil
 // error if such occurred. Must be implemented.
 func (b *brightboxCloudProvider) NodeGroupForNode(node *apiv1.Node) (cloudprovider.NodeGroup, error) {
-	klog.V(4).Info("NodeGroupForNode called")
+	klog.V(4).Info("NodeGroupForNode")
 	klog.V(4).Infof("Looking for %v", node.Spec.ProviderID)
 	groupId, ok := b.nodeMap[k8ssdk.MapProviderIDToServerID(node.Spec.ProviderID)]
 	if ok {
@@ -85,21 +85,12 @@ func (b *brightboxCloudProvider) NodeGroupForNode(node *apiv1.Node) (cloudprovid
 	return nil, nil
 }
 
-func (b *brightboxCloudProvider) findNodeGroup(grpId string) cloudprovider.NodeGroup {
-	for _, nodeGroup := range b.nodeGroups {
-		if nodeGroup.Id() == grpId {
-			return nodeGroup
-		}
-	}
-	return nil
-}
-
-// Refresh is called before every main loop and can be used to dynamically
+// Refresh is before every main loop and can be used to dynamically
 // update cloud provider state.
 // In particular the list of node groups returned by NodeGroups can
 // change as a result of CloudProvider.Refresh().
 func (b *brightboxCloudProvider) Refresh() error {
-	klog.V(4).Info("Refresh called")
+	klog.V(4).Info("Refresh")
 	groups, err := b.GetServerGroups()
 	if err != nil {
 		return err
@@ -142,6 +133,119 @@ func (b *brightboxCloudProvider) Refresh() error {
 	return nil
 }
 
+// Pricing returns pricing model for this cloud provider or error if
+// not available.
+// Implementation optional.
+func (b *brightboxCloudProvider) Pricing() (cloudprovider.PricingModel, errors.AutoscalerError) {
+	klog.V(4).Info("Pricing")
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+// GetAvailableMachineTypes get all machine types that can be requested
+// from the cloud provider.
+// Implementation optional.
+func (b *brightboxCloudProvider) GetAvailableMachineTypes() ([]string, error) {
+	klog.V(4).Info("GetAvailableMachineTypes")
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+// NewNodeGroup builds a theoretical node group based on the node
+// definition provided. The node group is not automatically created on
+// the cloud provider side. The node group is not returned by NodeGroups()
+// until it is created.
+// Implementation optional.
+func (b *brightboxCloudProvider) NewNodeGroup(machineType string, labels map[string]string, systemLabels map[string]string, taints []apiv1.Taint, extraResources map[string]resource.Quantity) (cloudprovider.NodeGroup, error) {
+	klog.V(4).Info("newNodeGroup")
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+// GetResourceLimiter returns struct containing limits (max, min) for
+// resources (cores, memory etc.).
+func (b *brightboxCloudProvider) GetResourceLimiter() (*cloudprovider.ResourceLimiter, error) {
+	klog.V(4).Info("GetResourceLimiter")
+	return b.resourceLimiter, nil
+}
+
+// GPULabel returns the label added to nodes with GPU resource.
+func (b *brightboxCloudProvider) GPULabel() string {
+	klog.V(4).Info("GPULabel")
+	return GPULabel
+}
+
+// GetAvailableGPUTypes return all available GPU types cloud provider
+// supports.
+func (b *brightboxCloudProvider) GetAvailableGPUTypes() map[string]struct{} {
+	klog.V(4).Info("GetAvailableGPUTypes")
+	return availableGPUTypes
+}
+
+// Cleanup cleans up open resources before the cloud provider is
+// destroyed, i.e. go routines etc.
+func (b *brightboxCloudProvider) Cleanup() error {
+	klog.V(4).Info("Cleanup")
+	return nil
+}
+
+// BuildBrightbox builds the Brightbox provider
+func BuildBrightbox(
+	opts config.AutoscalingOptions,
+	do cloudprovider.NodeGroupDiscoveryOptions,
+	rl *cloudprovider.ResourceLimiter,
+) cloudprovider.CloudProvider {
+	klog.V(4).Info("BuildBrightbox")
+	klog.V(4).Infof("Config: %+v", opts)
+	klog.V(4).Infof("Discovery Options: %+v", do)
+	if opts.CloudConfig != "" {
+		klog.Warning("supplied config is not read by this version. Using environment")
+	}
+	if opts.ClusterName == "" {
+		klog.Fatal("Set the cluster name option to the Fully Qualified Internal Domain Name of the cluster")
+	}
+	validateEnvironment()
+	validateJoinCommand()
+	newCloudProvider := &brightboxCloudProvider{
+		ClusterName:     opts.ClusterName,
+		resourceLimiter: rl,
+		Cloud:           &k8ssdk.Cloud{},
+	}
+	_, err := newCloudProvider.CloudClient()
+	if err != nil {
+		klog.Fatalf("Failed to create Brightbox Cloud Client: %v", err)
+	}
+	return newCloudProvider
+}
+
+//private
+
+func validateEnvironment() {
+	klog.V(4).Info("validateEnvironment")
+	for _, envVar := range k8sEnvVars {
+		if _, ok := os.LookupEnv(envVar); !ok {
+			klog.Fatalf("Required Environment Variable %q not set", envVar)
+		}
+	}
+}
+
+func validateJoinCommand() {
+	klog.V(4).Info("validateJoinCommand")
+	const sanitiseKubeadmCommand string = `^kubeadm +join +[0-9\.]+:[0-9]+ +--token +[a-z0-9]{6}\.[a-z0-9]{16} +--discovery-token-ca-cert-hash +sha256:[0-9a-f]+$`
+	re := regexp.MustCompile(sanitiseKubeadmCommand)
+	if !re.MatchString(os.Getenv(joinCommandEnvVar)) {
+		klog.Fatalf("Join Command does not match sanitisation pattern")
+	}
+}
+
+func (b *brightboxCloudProvider) findNodeGroup(grpId string) cloudprovider.NodeGroup {
+	klog.V(4).Info("findNodeGroup")
+	klog.V(4).Infof("Looking for %q", grpId)
+	for _, nodeGroup := range b.nodeGroups {
+		if nodeGroup.Id() == grpId {
+			return nodeGroup
+		}
+	}
+	return nil
+}
+
 func defaultServerName(name string) string {
 	klog.V(4).Info("defaultServerName")
 	klog.V(4).Infof("group name is %q", name)
@@ -149,6 +253,8 @@ func defaultServerName(name string) string {
 }
 
 func fetchDefaultGroup(groups []brightbox.ServerGroup, clusterName string) string {
+	klog.V(4).Info("findDefaultGroup")
+	klog.V(4).Infof("for cluster %q", clusterName)
 	for _, group := range groups {
 		if group.Name == clusterName {
 			return group.Id
@@ -184,103 +290,11 @@ func (b *brightboxCloudProvider) extractGroupDefaults(servers []brightbox.Server
 }
 
 func checkForChange(currentId string, newId string, errorMessage string) string {
+	klog.V(4).Info("checkForChange")
+	klog.V(4).Infof("new %q, existing %q", newId, currentId)
 	if currentId == "" || currentId == newId {
 		return newId
 	}
 	klog.Warning(errorMessage)
 	return currentId
-}
-
-// Pricing returns pricing model for this cloud provider or error if
-// not available.
-// Implementation optional.
-func (b *brightboxCloudProvider) Pricing() (cloudprovider.PricingModel, errors.AutoscalerError) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-// GetAvailableMachineTypes get all machine types that can be requested
-// from the cloud provider.
-// Implementation optional.
-func (b *brightboxCloudProvider) GetAvailableMachineTypes() ([]string, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-// NewNodeGroup builds a theoretical node group based on the node
-// definition provided. The node group is not automatically created on
-// the cloud provider side. The node group is not returned by NodeGroups()
-// until it is created.
-// Implementation optional.
-func (b *brightboxCloudProvider) NewNodeGroup(machineType string, labels map[string]string, systemLabels map[string]string, taints []apiv1.Taint, extraResources map[string]resource.Quantity) (cloudprovider.NodeGroup, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-// GetResourceLimiter returns struct containing limits (max, min) for
-// resources (cores, memory etc.).
-func (b *brightboxCloudProvider) GetResourceLimiter() (*cloudprovider.ResourceLimiter, error) {
-	klog.V(4).Info("GetResourceLimiter called")
-	return b.resourceLimiter, nil
-}
-
-// GPULabel returns the label added to nodes with GPU resource.
-func (b *brightboxCloudProvider) GPULabel() string {
-	klog.V(4).Info("GPULabel called")
-	return GPULabel
-}
-
-// GetAvailableGPUTypes return all available GPU types cloud provider
-// supports.
-func (b *brightboxCloudProvider) GetAvailableGPUTypes() map[string]struct{} {
-	klog.V(4).Info("GetAvailableGPUTypes called")
-	return availableGPUTypes
-}
-
-// Cleanup cleans up open resources before the cloud provider is
-// destroyed, i.e. go routines etc.
-func (b *brightboxCloudProvider) Cleanup() error {
-	klog.V(4).Info("Cleanup called")
-	return nil
-}
-
-// BuildBrightbox builds the Brightbox provider
-func BuildBrightbox(
-	opts config.AutoscalingOptions,
-	do cloudprovider.NodeGroupDiscoveryOptions,
-	rl *cloudprovider.ResourceLimiter,
-) cloudprovider.CloudProvider {
-	klog.V(4).Info("BuildBrightbox called")
-	klog.V(4).Infof("Config: %+v", opts)
-	klog.V(4).Infof("Discovery Options: %+v", do)
-	if opts.CloudConfig != "" {
-		klog.Warning("supplied config is not read by this version. Using environment")
-	}
-	if opts.ClusterName == "" {
-		klog.Fatal("Set the cluster name option to the Fully Qualified Internal Domain Name of the cluster")
-	}
-	validateEnvironment()
-	validateJoinCommand()
-	newCloudProvider := &brightboxCloudProvider{
-		ClusterName:     opts.ClusterName,
-		resourceLimiter: rl,
-		Cloud:           &k8ssdk.Cloud{},
-	}
-	_, err := newCloudProvider.CloudClient()
-	if err != nil {
-		klog.Fatalf("Failed to create Brightbox Cloud Client: %v", err)
-	}
-	return newCloudProvider
-}
-
-func validateEnvironment() {
-	for _, envVar := range k8sEnvVars {
-		if _, ok := os.LookupEnv(envVar); !ok {
-			klog.Fatalf("Required Environment Variable %q not set", envVar)
-		}
-	}
-}
-
-func validateJoinCommand() {
-	re := regexp.MustCompile(`^kubeadm +join +[0-9\.]+:[0-9]+ +--token +[a-z0-9]{6}\.[a-z0-9]{16} +--discovery-token-ca-cert-hash +sha256:[0-9a-f]+$`)
-	if !re.MatchString(os.Getenv(joinCommandEnvVar)) {
-		klog.Fatalf("Join Command does not match sanitisation pattern")
-	}
 }
