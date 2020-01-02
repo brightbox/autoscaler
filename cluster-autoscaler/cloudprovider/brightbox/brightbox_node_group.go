@@ -47,11 +47,13 @@ type brightboxNodeGroup struct {
 
 // MaxSize returns maximum size of the node group.
 func (ng *brightboxNodeGroup) MaxSize() int {
+	klog.V(4).Info("MaxSize")
 	return ng.maxSize
 }
 
 // MinSize returns minimum size of the node group.
 func (ng *brightboxNodeGroup) MinSize() int {
+	klog.V(4).Info("MinSize")
 	return ng.minSize
 }
 
@@ -107,17 +109,6 @@ func (ng *brightboxNodeGroup) IncreaseSize(delta int) error {
 	)
 }
 
-func (ng *brightboxNodeGroup) createServers(amount int) error {
-	klog.V(4).Infof("creating %d servers", amount)
-	for i := 1; i <= amount; i++ {
-		_, err := ng.CreateServer(ng.serverOptions)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // DeleteNodes deletes nodes from this node group. Error is returned
 // either on failure or if the given node doesn't belong to this
 // node group. This function should wait until node group size is
@@ -140,55 +131,6 @@ func (ng *brightboxNodeGroup) DeleteNodes(nodes []*apiv1.Node) error {
 		}
 	}
 	return nil
-}
-
-// Delete the server and wait for the group details to be updated
-func (ng *brightboxNodeGroup) deleteServerFromGroup(serverId string) error {
-	klog.V(4).Infof("deleteServerFromGroup: %q", serverId)
-	serverIdNotInGroup := func() (bool, error) {
-		return ng.isMissing(serverId)
-	}
-	missing, err := serverIdNotInGroup()
-	if err != nil {
-		return err
-	} else if missing {
-		return fmt.Errorf("%s belongs to a different group than %s", serverId, ng.Id())
-	}
-	err = ng.DestroyServer(serverId)
-	if err != nil {
-		return err
-	}
-	return wait.Poll(
-		checkInterval,
-		checkTimeout,
-		serverIdNotInGroup,
-	)
-}
-
-func serverNotFoundError(id string) error {
-	return fmt.Errorf("Server %s not found", id)
-}
-
-func (ng *brightboxNodeGroup) isMissing(serverId string) (bool, error) {
-	klog.V(4).Infof("isMissing: %q from %q", serverId, ng.Id())
-	server, err := ng.GetServer(
-		context.Background(),
-		serverId,
-		serverNotFoundError(serverId),
-	)
-	if err != nil {
-		return false, err
-	}
-	if server.DeletedAt != nil {
-		klog.V(4).Info("server deleted")
-		return true, nil
-	}
-	for _, group := range server.ServerGroups {
-		if group.Id == ng.Id() {
-			return false, nil
-		}
-	}
-	return true, nil
 }
 
 // DecreaseTargetSize decreases the target size of the node group. This
@@ -221,12 +163,14 @@ func (ng *brightboxNodeGroup) DecreaseTargetSize(delta int) error {
 
 // Id returns an unique identifier of the node group.
 func (ng *brightboxNodeGroup) Id() string {
+	klog.V(4).Info("Id")
 	return ng.id
 }
 
 // Debug returns a string containing all information regarding this
 // node group.
 func (ng *brightboxNodeGroup) Debug() string {
+	klog.V(4).Info("Debug")
 	return fmt.Sprintf("brightboxNodeGroup %+v", *ng)
 }
 
@@ -284,12 +228,14 @@ func (ng *brightboxNodeGroup) Exist() bool {
 // well as all pods that are started on the node by default, using manifest
 // (most likely only kube-proxy). Implementation optional.
 func (ng *brightboxNodeGroup) TemplateNodeInfo() (*schedulernodeinfo.NodeInfo, error) {
+	klog.V(4).Info("TemplateNodeInfo")
 	return nil, cloudprovider.ErrNotImplemented
 }
 
 // Create creates the node group on the cloud provider
 // side. Implementation optional.
 func (ng *brightboxNodeGroup) Create() (cloudprovider.NodeGroup, error) {
+	klog.V(4).Info("Create")
 	return nil, cloudprovider.ErrNotImplemented
 }
 
@@ -297,6 +243,7 @@ func (ng *brightboxNodeGroup) Create() (cloudprovider.NodeGroup, error) {
 // This will be executed only for autoprovisioned node groups, once
 // their size drops to 0.  Implementation optional.
 func (ng *brightboxNodeGroup) Delete() error {
+	klog.V(4).Info("Delete")
 	return cloudprovider.ErrNotImplemented
 }
 
@@ -304,8 +251,11 @@ func (ng *brightboxNodeGroup) Delete() error {
 // autoprovisioned group was created by CA and can be deleted when scaled
 // to 0.
 func (ng *brightboxNodeGroup) Autoprovisioned() bool {
+	klog.V(4).Info("Autoprovisioned")
 	return false
 }
+
+//private
 
 func makeNodeGroupFromApiDetails(
 	id string,
@@ -350,4 +300,65 @@ func makeNodeGroupFromApiDetails(
 	}
 	klog.V(4).Info(result.Debug())
 	return &result
+}
+
+func (ng *brightboxNodeGroup) createServers(amount int) error {
+	klog.V(4).Infof("createServers: %d", amount)
+	for i := 1; i <= amount; i++ {
+		_, err := ng.CreateServer(ng.serverOptions)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Delete the server and wait for the group details to be updated
+func (ng *brightboxNodeGroup) deleteServerFromGroup(serverId string) error {
+	klog.V(4).Infof("deleteServerFromGroup: %q", serverId)
+	serverIdNotInGroup := func() (bool, error) {
+		return ng.isMissing(serverId)
+	}
+	missing, err := serverIdNotInGroup()
+	if err != nil {
+		return err
+	} else if missing {
+		return fmt.Errorf("%s belongs to a different group than %s", serverId, ng.Id())
+	}
+	err = ng.DestroyServer(serverId)
+	if err != nil {
+		return err
+	}
+	return wait.Poll(
+		checkInterval,
+		checkTimeout,
+		serverIdNotInGroup,
+	)
+}
+
+func serverNotFoundError(id string) error {
+	klog.V(4).Infof("serverNotFoundError: %q", id)
+	return fmt.Errorf("Server %s not found", id)
+}
+
+func (ng *brightboxNodeGroup) isMissing(serverId string) (bool, error) {
+	klog.V(4).Infof("isMissing: %q from %q", serverId, ng.Id())
+	server, err := ng.GetServer(
+		context.Background(),
+		serverId,
+		serverNotFoundError(serverId),
+	)
+	if err != nil {
+		return false, err
+	}
+	if server.DeletedAt != nil {
+		klog.V(4).Info("server deleted")
+		return true, nil
+	}
+	for _, group := range server.ServerGroups {
+		if group.Id == ng.Id() {
+			return false, nil
+		}
+	}
+	return true, nil
 }
