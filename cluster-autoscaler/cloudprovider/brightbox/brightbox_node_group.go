@@ -203,7 +203,7 @@ func (ng *brightboxNodeGroup) Nodes() ([]cloudprovider.Instance, error) {
 			status.ErrorInfo = &errorInfo
 		}
 		nodes[i] = cloudprovider.Instance{
-			Id:     server.Id,
+			Id:     k8ssdk.MapServerIDToProviderID(server.Id),
 			Status: &status,
 		}
 	}
