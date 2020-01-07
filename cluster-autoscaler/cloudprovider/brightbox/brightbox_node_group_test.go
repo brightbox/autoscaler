@@ -47,13 +47,13 @@ var (
 	fakeError     = errors.New("Fake API Error")
 	fakeInstances = []cloudprovider.Instance{
 		cloudprovider.Instance{
-			Id: "srv-rp897",
+			Id: "brightbox://srv-rp897",
 			Status: &cloudprovider.InstanceStatus{
 				State: cloudprovider.InstanceRunning,
 			},
 		},
 		cloudprovider.Instance{
-			Id: "srv-lv426",
+			Id: "brightbox://srv-lv426",
 			Status: &cloudprovider.InstanceStatus{
 				State: cloudprovider.InstanceRunning,
 			},
@@ -61,13 +61,13 @@ var (
 	}
 	fakeTransitionInstances = []cloudprovider.Instance{
 		cloudprovider.Instance{
-			Id: "srv-rp897",
+			Id: "brightbox://srv-rp897",
 			Status: &cloudprovider.InstanceStatus{
 				State: cloudprovider.InstanceDeleting,
 			},
 		},
 		cloudprovider.Instance{
-			Id: "srv-lv426",
+			Id: "brightbox://srv-lv426",
 			Status: &cloudprovider.InstanceStatus{
 				State: cloudprovider.InstanceCreating,
 			},
@@ -75,7 +75,7 @@ var (
 	}
 	fakeErrorInstances = []cloudprovider.Instance{
 		cloudprovider.Instance{
-			Id: "srv-rp897",
+			Id: "brightbox://srv-rp897",
 			Status: &cloudprovider.InstanceStatus{
 				ErrorInfo: &cloudprovider.InstanceErrorInfo{
 					ErrorClass:   cloudprovider.OtherErrorClass,
@@ -85,7 +85,7 @@ var (
 			},
 		},
 		cloudprovider.Instance{
-			Id: "srv-lv426",
+			Id: "brightbox://srv-lv426",
 			Status: &cloudprovider.InstanceStatus{
 				ErrorInfo: &cloudprovider.InstanceErrorInfo{
 					ErrorClass:   cloudprovider.OtherErrorClass,
