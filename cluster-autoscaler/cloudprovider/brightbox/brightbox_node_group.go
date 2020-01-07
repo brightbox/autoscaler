@@ -337,7 +337,7 @@ func (ng *brightboxNodeGroup) deleteServerFromGroup(serverId string) error {
 }
 
 func serverNotFoundError(id string) error {
-	klog.V(4).Infof("serverNotFoundError: %q", id)
+	klog.V(4).Infof("serverNotFoundError: created for %q", id)
 	return fmt.Errorf("Server %s not found", id)
 }
 
