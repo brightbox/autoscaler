@@ -30,7 +30,7 @@ group and all autoscaled servers created are placed within it as well
 as the scaling group.
 
 The Brightbox Cloud provider only supports auto-discovery mode using
-this pattern. `node-group-auto-discovery' and 'nodes` options are
+this pattern. `node-group-auto-discovery` and `nodes` options are
 effectively ignored.
 
 ## Cluster configuration
