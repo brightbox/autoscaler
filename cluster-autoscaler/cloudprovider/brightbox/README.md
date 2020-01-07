@@ -29,6 +29,10 @@ A group named precisely the same as the cluster-name
 group and all autoscaled servers created are placed within it as well
 as the scaling group.
 
+The Brightbox Cloud provider only supports auto-discovery mode using
+this pattern. `node-group-auto-discovery' and 'nodes` options are
+effectively ignored.
+
 ## Cluster configuration
 
 If you are using the [Kubernetes Cluster
@@ -42,13 +46,15 @@ updated with the correct values
 # Autoscaler Brightbox cloudprovider configuration
 
 The Brightbox Cloud cloudprovider is configured via Environment Variables
-suppied to the autoscaler pod. The easiest way to do this is to create
-a secret containing the variables within the `kube-system` namespace.
+suppied to the autoscaler pod. The easiest way to do this is to [create
+a secret](https://kubernetes.io/docs/concepts/configuration/secret/#creating-a-secret-manually) containing the variables within the `kube-system` namespace.
 
 ```
----
 apiVersion: v1
 kind: Secret
+metadata:
+  name: brightbox-credentials
+  namespace: kube-system
 type: Opaque
 data:
   BRIGHTBOX_API_URL: <base 64 of api URL>
@@ -56,9 +62,6 @@ data:
   BRIGHTBOX_CLIENT_SECRET: <base64 of Brightbox Cloud client id secret>
   BRIGHTBOX_KUBE_JOIN_COMMAND: <base64 of cluster join command>
   BRIGHTBOX_KUBE_VERSION: <base 64 of installed k8s version>
-metadata:
-  name: brightbox-credentials
-  namespace: kube-system
 ```
 
 The join command can be obtained from the kubeadm token command
@@ -78,3 +81,23 @@ The [Kubernetes Cluster
 Builder](https://github.com/brightbox/kubernetes-cluster) creates a
 `brightbox-credentials` secret in the `kube-system` namespace ready
 to use.
+
+## Checking the environment
+
+You can check the brightbox-credentials secret by running the `check-env` job from the examples directory.
+
+```
+$ kubectl apply -f examples/check-env.yaml
+job.batch/check-env created
+$ kubectl -n kube-system logs job/check-env
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+HOSTNAME=check-env-hbh6m
+_BASH_GPG_KEY=7C0135FB088AAF6C66C650B9BB5869F064EA74AB
+_BASH_VERSION=5.0
+_BASH_PATCH_LEVEL=0
+_BASH_LATEST_PATCH=11
+BRIGHTBOX_KUBE_VERSION=1.17.0
+...
+$ kubectl delete -f examples/check-env.yaml
+job.batch "check-env" deleted
+```
