@@ -116,8 +116,8 @@ func (b *brightboxCloudProvider) Refresh() error {
 				groupZone,
 				defaultGroup,
 				defaultUserData(
-					os.Getenv(k8sVersionEnvVar),
-					os.Getenv(joinCommandEnvVar),
+					strings.TrimSpace(os.Getenv(k8sVersionEnvVar)),
+					strings.TrimSpace(os.Getenv(joinCommandEnvVar)),
 				),
 				b.Cloud,
 			)
@@ -230,7 +230,9 @@ func validateJoinCommand() {
 	klog.V(4).Info("validateJoinCommand")
 	const sanitiseKubeadmCommand string = `^kubeadm +join +[0-9\.]+:[0-9]+ +--token +[a-z0-9]{6}\.[a-z0-9]{16} +--discovery-token-ca-cert-hash +sha256:[0-9a-f]+$`
 	re := regexp.MustCompile(sanitiseKubeadmCommand)
-	if !re.MatchString(os.Getenv(joinCommandEnvVar)) {
+	command := strings.TrimSpace(os.Getenv(joinCommandEnvVar))
+	if !re.MatchString(command) {
+		klog.Infof("Join Command: %q", command)
 		klog.Fatalf("Join Command does not match sanitisation pattern")
 	}
 }
