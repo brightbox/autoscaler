@@ -668,7 +668,7 @@ func deletedFakeServer(server *brightbox.Server) *brightbox.Server {
 }
 
 func setK8sEnvJoinCommand() {
-	os.Setenv(joinCommandEnvVar, "kubeadm join 109.107.39.68:6443 --token fxzk7c.yzewd3rk1diulre9     --discovery-token-ca-cert-hash sha256:dc2f4180fa1dd7b579e4689277394cb820ebbe0f11e189982f8742051d3c1fcc")
+	os.Setenv(joinCommandEnvVar, "kubeadm join 109.107.39.68:6443 --token g2wygf.grde9094nw036rgh     --discovery-token-ca-cert-hash sha256:dc2f4180fa1dd7b579e4689277394cb820ebbe0f11e189982f8742051d3c1fcc\n")
 }
 
 func setK8sEnvDodgyJoinCommand() {
