@@ -1,16 +1,16 @@
 # Cluster Autoscaler for Brightbox Cloud
 
 This cloud provider implements the autoscaling function for
-Brightbox Cloud. The autoscaler should work on any Kubernetes
-clusters running on Brightbox Cloud, however the approach
-is tailored to clusters built with the [Kubernetes Cluster
+[Brightbox Cloud](https://www.brightbox.com). The autoscaler should
+work on any Kubernetes clusters running on Brightbox Cloud, however
+the approach is tailored to clusters built with the [Kubernetes Cluster
 Builder](https://github.com/brightbox/kubernetes-cluster)
 
 # How Autoscaler works on Brightbox Cloud
 
 The autoscaler looks for [Server
 Groups](https://www.brightbox.com/docs/guides/cli/server-groups/) named
-after the cluster-name option passed to the autoscaler  (--cluster-name).
+after the cluster-name option passed to the autoscaler (--cluster-name).
 
 A group named with a suffix of the cluster-name
 (e.g. k8s-worker.k8s-test.cluster.local) is a candidate to be a scaling
@@ -101,3 +101,28 @@ BRIGHTBOX_KUBE_VERSION=1.17.0
 $ kubectl delete -f examples/check-env.yaml
 job.batch "check-env" deleted
 ```
+
+# Running the Autoscaler
+
+Create the `cluster-autoscaler` service account and the RBAC bindings
+
+```
+$ kubectl apply -f examples/cluster-autoscaler-svcaccount.yaml
+```
+
+Copy the `examples/cluster-autoscaler-deployment.yaml` file and edit
+it. Change the image details to the correct repository and container
+you wish to use. Alter the cluster name in the argument list to the full
+name of your cluster. (If you are using the [Kubernetes Cluster
+Builder](https://github.com/brightbox/kubernetes-cluster),
+this will be `cluster_name` and `cluster_domainname` joined with a '.')
+
+then apply your manifest
+
+```
+$ kubectl apply -f /tmp/cluster-autoscaler-deployment
+```
+
+As the Brightbox cloud-provider auto-detects and potentially scales all
+the worker groups, the example deployment file runs the autoscaler on
+the master nodes.
