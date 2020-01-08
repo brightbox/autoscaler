@@ -28,7 +28,7 @@ spec:
         node-role.kubernetes.io/master: ""
       containers:
         - name: cluster-autoscaler
-          image: brightbox/cluster-autoscaler:dev
+          image: brightbox/cluster-autoscaler-brightbox:dev
           imagePullPolicy: Always
           command:
             - ./cluster-autoscaler

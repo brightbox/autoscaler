@@ -126,3 +126,13 @@ $ kubectl apply -f /tmp/cluster-autoscaler-deployment
 As the Brightbox cloud-provider auto-detects and potentially scales all
 the worker groups, the example deployment file runs the autoscaler on
 the master nodes.
+
+# Building the Brightbox Cloud autoscaler
+
+Extract the repository to a machine running docker and then run the make command from the cluster-autoscaler directory
+
+```
+$ BUILD_TAGS=brightbox REGISTRY=brightbox make container
+```
+
+This builds an autoscaler containing only the Brightbox Cloud provider, tagged as `brightbox/cluster-autoscaler-brightbox:dev`.
