@@ -32,11 +32,12 @@ spec:
           imagePullPolicy: Always
           command:
             - ./cluster-autoscaler
-            - --v=4
-            - --alsologtostderr
+          args:
             - --cluster-name=kubernetes.cluster.local
             - --skip-nodes-with-local-storage=false
             - --cloud-provider=brightbox
+            - --v=4
+            - --alsologtostderr
           envFrom:
           - secretRef:
               name: brightbox-credentials
