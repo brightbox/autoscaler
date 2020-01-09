@@ -26,6 +26,7 @@ spec:
         effect: NoSchedule
       nodeSelector:
         node-role.kubernetes.io/master: ""
+      priorityClassName: system-cluster-critical
       containers:
         - name: cluster-autoscaler
           image: brightbox/cluster-autoscaler-brightbox:dev
