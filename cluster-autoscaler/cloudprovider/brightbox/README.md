@@ -144,7 +144,7 @@ $ kubectl create job ca-options --image=brightbox/cluster-autoscaler-brightbox:d
 $ kubectl log job/ca-options
 ```
 
-Remove the job in the normal way with `kubectl delete job/ca-options'
+Remove the job in the normal way with `kubectl delete job/ca-options`
 
 You can read more details about some of the options in the [main FAQ](../../FAQ.md)
 
