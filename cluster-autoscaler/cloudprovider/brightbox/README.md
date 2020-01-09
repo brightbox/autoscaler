@@ -41,7 +41,15 @@ Builder](https://github.com/brightbox/kubernetes-cluster) set the
 `storage_min` and `storage_max` values to scale the storage group.
 
 The Cluster Builder will ensure the group name and description are
-updated with the correct values
+updated with the correct values in the format that autoscaler can recognise.
+
+Generally it is best to keep the `min` and the `count` values to be the same within the Cluster Buider and let autoscaler create and destroy servers dynamically up the the `max` value.
+
+While using autoscaler you may find that the Cluster Builder recreates
+servers that have been scaled down, if you use the manifests to maintain
+the cluster for other reasons (changing the management address for
+example). This is a limitation of the Terraform state database, and
+autoscaler will scale the cluster back down during the next few minutes.
 
 # Autoscaler Brightbox cloudprovider configuration
 
@@ -117,7 +125,7 @@ name of your cluster. (If you are using the [Kubernetes Cluster
 Builder](https://github.com/brightbox/kubernetes-cluster),
 this will be `cluster_name` and `cluster_domainname` joined with a '.')
 
-then apply your manifest
+Then apply your manifest
 
 ```
 $ kubectl apply -f /tmp/cluster-autoscaler-deployment
@@ -126,6 +134,20 @@ $ kubectl apply -f /tmp/cluster-autoscaler-deployment
 As the Brightbox cloud-provider auto-detects and potentially scales all
 the worker groups, the example deployment file runs the autoscaler on
 the master nodes.
+
+## Viewing the cluster-autoscaler options
+
+Cluster autoscaler has many options that can be adjusted to better fit the needs of your application. To view them run
+
+```
+$ kubectl create job ca-options --image=brightbox/cluster-autoscaler-brightbox:dev -- ./cluster-autoscaler -h
+$ kubectl log job/ca-options
+```
+
+Remove the job in the normal way with `kubectl delete job/ca-options'
+
+You can read more details about some of the options in the [main FAQ](../../FAQ.md)
+
 
 # Building the Brightbox Cloud autoscaler
 
