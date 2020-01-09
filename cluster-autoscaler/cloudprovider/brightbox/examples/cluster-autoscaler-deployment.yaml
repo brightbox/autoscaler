@@ -35,7 +35,7 @@ spec:
             - ./cluster-autoscaler
           args:
             - --cluster-name=kubernetes.cluster.local
-            - --skip-nodes-with-local-storage=false
+            - --skip-nodes-with-local-storage=true
             - --cloud-provider=brightbox
             - --v=4
             - --alsologtostderr
