@@ -112,23 +112,19 @@ job.batch "check-env" deleted
 
 # Running the Autoscaler
 
-Create the `cluster-autoscaler` service account and the RBAC bindings
+Edit the `values.yaml` file. Change the image details to the correct
+repository and container you wish to use. Alter the cluster name to the
+full name of your cluster. (If you are using the [Kubernetes Cluster
+Builder](https://github.com/brightbox/kubernetes-cluster), this will be
+`cluster_name` and `cluster_domainname` joined with a '.')
+
+Then generate and apply the manifests
 
 ```
-$ kubectl apply -f examples/cluster-autoscaler-svcaccount.yaml
-```
-
-Copy the `examples/cluster-autoscaler-deployment.yaml` file and edit
-it. Change the image details to the correct repository and container
-you wish to use. Alter the cluster name in the argument list to the full
-name of your cluster. (If you are using the [Kubernetes Cluster
-Builder](https://github.com/brightbox/kubernetes-cluster),
-this will be `cluster_name` and `cluster_domainname` joined with a '.')
-
-Then apply your manifest
-
-```
-$ kubectl apply -f /tmp/cluster-autoscaler-deployment
+$ helm template release stable/cluster-autoscaler \
+--namespace kube-system -f values.yaml |
+ruby fix_cluster_autoscaler.rb |
+kubectl -n kube-system apply -f -
 ```
 
 As the Brightbox cloud-provider auto-detects and potentially scales all
