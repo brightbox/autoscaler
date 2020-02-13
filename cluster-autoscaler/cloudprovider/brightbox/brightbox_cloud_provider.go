@@ -100,12 +100,18 @@ func (b *brightboxCloudProvider) Refresh() error {
 	nodeMap := make(map[string]string)
 	defaultGroup := fetchDefaultGroup(groups, b.ClusterName)
 	for _, group := range groups {
-		if strings.HasSuffix(group.Name, clusterSuffix) {
+		switch {
+		case !strings.HasSuffix(group.Name, clusterSuffix):
+			klog.V(4).Infof("Group %q: name doesn't match suffix %q. Ignoring", group.Name, clusterSuffix)
+		case len(group.Servers) < 1:
+			klog.V(4).Infof("Group %q: has no members. Ignoring", group.Name)
+		default:
 			groupType, groupImage, groupZone, err :=
 				b.extractGroupDefaults(group.Servers)
 			if err != nil {
 				return err
 			}
+			klog.V(4).Infof("Group %q: Adding to node group list", group.Name)
 			newNodeGroup := makeNodeGroupFromApiDetails(
 				group.Id,
 				defaultServerName(group.Name),
