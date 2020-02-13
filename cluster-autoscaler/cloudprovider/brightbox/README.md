@@ -112,24 +112,28 @@ job.batch "check-env" deleted
 
 # Running the Autoscaler
 
-Edit the `values.yaml` file. Change the image details to the correct
-repository and container you wish to use. Alter the cluster name to the
+1. Edit the `examples/values.yaml` file.
+2. Change the `image` tag entries to the correct
+repository and container you wish to use.
+3. Alter the `autoDiscovery`cluster name to the
 full name of your cluster. (If you are using the [Kubernetes Cluster
 Builder](https://github.com/brightbox/kubernetes-cluster), this will be
 `cluster_name` and `cluster_domainname` joined with a '.')
+4. Make sure the cluster-name in `extraArgs` is the same as the one in
+`autoDiscovery`.
 
 Then generate and apply the manifests
 
 ```
 $ helm template release stable/cluster-autoscaler \
---namespace kube-system -f values.yaml |
-ruby fix_cluster_autoscaler.rb |
+--namespace kube-system -f examples/values.yaml |
+ruby examples/fix_cluster_autoscaler.rb |
 kubectl -n kube-system apply -f -
 ```
 
 As the Brightbox cloud-provider auto-detects and potentially scales all
 the worker groups, the example deployment file runs the autoscaler on
-the master nodes.
+the master nodes. This avoids it accidentally killing itself.
 
 ## Viewing the cluster-autoscaler options
 
