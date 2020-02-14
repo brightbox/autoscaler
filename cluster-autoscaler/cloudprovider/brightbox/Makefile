@@ -1,7 +1,19 @@
 .PHONY: deploy
-deploy: examples/config.rb
+deploy: examples/config.rb ../../cluster-autoscaler
 	ruby $< | \
 	helm template release stable/cluster-autoscaler \
 	--namespace kube-system -f - | \
 	ruby examples/fix_cluster_autoscaler.rb | \
 	kubectl -n kube-system apply -f -
+
+export BUILD_TAGS=brightbox
+export REGISTRY=brightbox
+../../cluster-autoscaler: brightbox_cloud_provider.go brightbox_node_group.go brightbox_user_data.go
+	$(MAKE) -C $(@D) container
+
+.PHONY: build
+build: ../../cluster-autoscaler
+
+.PHONY: clean
+clean: 
+	$(MAKE) -C ../.. $@
