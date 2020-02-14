@@ -43,7 +43,9 @@ Builder](https://github.com/brightbox/kubernetes-cluster) set the
 The Cluster Builder will ensure the group name and description are
 updated with the correct values in the format that autoscaler can recognise.
 
-Generally it is best to keep the `min` and the `count` values to be the same within the Cluster Buider and let autoscaler create and destroy servers dynamically up the the `max` value.
+Generally it is best to keep the `min` and the `count` values to be the
+same within the Cluster Buider and let autoscaler create and destroy
+servers dynamically up the the `max` value.
 
 While using autoscaler you may find that the Cluster Builder recreates
 servers that have been scaled down, if you use the manifests to maintain
@@ -112,25 +114,18 @@ job.batch "check-env" deleted
 
 # Running the Autoscaler
 
-1. Edit the `examples/values.yaml` file.
-2. Change the `image` tag entries to the correct
-repository and container you wish to use.
-3. Alter the `autoDiscovery`cluster name to the
-full name of your cluster. (If you are using the [Kubernetes Cluster
+1. Edit the `examples/config.rb` file and adjust the config hash.
+2. Change the `image` tag entries to the container you wish to use
+3. Set the `tag` to the version you wish to use
+3. Alter the cluster name and verbose level if
+required. (If you are using the [Kubernetes Cluster
 Builder](https://github.com/brightbox/kubernetes-cluster), this will be
 `cluster_name` and `cluster_domainname` joined with a '.')
-4. Make sure the cluster-name in `extraArgs` is the same as the one in
-`autoDiscovery`.
 
 Then generate and apply the manifests
-
 ```
-$ helm template release stable/cluster-autoscaler \
---namespace kube-system -f examples/values.yaml |
-ruby examples/fix_cluster_autoscaler.rb |
-kubectl -n kube-system apply -f -
+$ make deploy
 ```
-
 As the Brightbox cloud-provider auto-detects and potentially scales all
 the worker groups, the example deployment file runs the autoscaler on
 the master nodes. This avoids it accidentally killing itself.
