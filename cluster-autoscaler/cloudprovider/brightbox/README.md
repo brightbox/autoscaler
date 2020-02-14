@@ -146,10 +146,10 @@ You can read more details about some of the options in the [main FAQ](../../FAQ.
 
 # Building the Brightbox Cloud autoscaler
 
-Extract the repository to a machine running docker and then run the make command from the cluster-autoscaler directory
+Extract the repository to a machine running docker and then run the make command
 
 ```
-$ BUILD_TAGS=brightbox REGISTRY=brightbox make container
+$ make build
 ```
 
 This builds an autoscaler containing only the Brightbox Cloud provider, tagged as `brightbox/cluster-autoscaler-brightbox:dev`.
