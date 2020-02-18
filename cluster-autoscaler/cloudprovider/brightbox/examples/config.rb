@@ -16,7 +16,10 @@ def output(config)
       'tag' => 'dev',
       'pullPolicy' => 'Always' },
     'tolerations' =>
-    [{ 'effect' => 'NoSchedule', 'key' => 'node-role.kubernetes.io/master' }],
+    [
+      { 'effect' => 'NoSchedule', 'key' => 'node-role.kubernetes.io/master' },
+      { 'operator' => 'Exists', 'key' => 'CriticalAddonsOnly' }
+    ],
     'extraArgs' =>
     { 'v' => config[:verbose_level].to_s,
       'stderrthreshold' => 'info',
