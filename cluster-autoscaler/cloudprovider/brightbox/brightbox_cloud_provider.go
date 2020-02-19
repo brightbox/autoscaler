@@ -33,6 +33,7 @@ import (
 )
 
 const (
+	// GPULabel is added to nodes with GPU resource
 	GPULabel          = "cloud.brightbox.com/gpu-node"
 	joinCommandEnvVar = "BRIGHTBOX_KUBE_JOIN_COMMAND"
 	k8sVersionEnvVar  = "BRIGHTBOX_KUBE_VERSION"
@@ -76,10 +77,10 @@ func (b *brightboxCloudProvider) NodeGroups() []cloudprovider.NodeGroup {
 func (b *brightboxCloudProvider) NodeGroupForNode(node *apiv1.Node) (cloudprovider.NodeGroup, error) {
 	klog.V(4).Info("NodeGroupForNode")
 	klog.V(4).Infof("Looking for %v", node.Spec.ProviderID)
-	groupId, ok := b.nodeMap[k8ssdk.MapProviderIDToServerID(node.Spec.ProviderID)]
+	groupID, ok := b.nodeMap[k8ssdk.MapProviderIDToServerID(node.Spec.ProviderID)]
 	if ok {
-		klog.V(4).Infof("Found in group %v", groupId)
-		return b.findNodeGroup(groupId), nil
+		klog.V(4).Infof("Found in group %v", groupID)
+		return b.findNodeGroup(groupID), nil
 	}
 	klog.V(4).Info("Not found")
 	return nil, nil
@@ -243,11 +244,11 @@ func validateJoinCommand() {
 	}
 }
 
-func (b *brightboxCloudProvider) findNodeGroup(grpId string) cloudprovider.NodeGroup {
+func (b *brightboxCloudProvider) findNodeGroup(groupID string) cloudprovider.NodeGroup {
 	klog.V(4).Info("findNodeGroup")
-	klog.V(4).Infof("Looking for %q", grpId)
+	klog.V(4).Infof("Looking for %q", groupID)
 	for _, nodeGroup := range b.nodeGroups {
-		if nodeGroup.Id() == grpId {
+		if nodeGroup.Id() == groupID {
 			return nodeGroup
 		}
 	}
@@ -274,7 +275,7 @@ func fetchDefaultGroup(groups []brightbox.ServerGroup, clusterName string) strin
 
 func (b *brightboxCloudProvider) extractGroupDefaults(servers []brightbox.Server) (string, string, string, error) {
 	klog.V(4).Info("extractGroupDefaults")
-	var serverTypeId, imageId, zoneId string
+	var serverTypeID, imageID, zoneID string
 	for _, serverSummary := range servers {
 		server, err := b.GetServer(
 			context.Background(),
@@ -284,25 +285,25 @@ func (b *brightboxCloudProvider) extractGroupDefaults(servers []brightbox.Server
 		if err != nil {
 			return "", "", "", err
 		}
-		imageId = checkForChange(imageId, server.Image.Id, "Group has multiple Image Ids")
-		serverTypeId = checkForChange(serverTypeId, server.ServerType.Id, "Group has multiple ServerType Ids")
-		if zoneId == "" {
-			zoneId = server.Zone.Id
-		} else if zoneId != server.Zone.Id {
+		imageID = checkForChange(imageID, server.Image.Id, "Group has multiple Image Ids")
+		serverTypeID = checkForChange(serverTypeID, server.ServerType.Id, "Group has multiple ServerType Ids")
+		if zoneID == "" {
+			zoneID = server.Zone.Id
+		} else if zoneID != server.Zone.Id {
 			klog.V(4).Info("Group is zone balanced")
-			zoneId = ""
+			zoneID = ""
 			break
 		}
 	}
-	return serverTypeId, imageId, zoneId, nil
+	return serverTypeID, imageID, zoneID, nil
 }
 
-func checkForChange(currentId string, newId string, errorMessage string) string {
+func checkForChange(currentID string, newID string, errorMessage string) string {
 	klog.V(4).Info("checkForChange")
-	klog.V(4).Infof("new %q, existing %q", newId, currentId)
-	if currentId == "" || currentId == newId {
-		return newId
+	klog.V(4).Infof("new %q, existing %q", newID, currentID)
+	if currentID == "" || currentID == newID {
+		return newID
 	}
 	klog.Warning(errorMessage)
-	return currentId
+	return currentID
 }
