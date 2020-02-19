@@ -16,6 +16,7 @@ package k8ssdk
 
 import (
 	"flag"
+	"os"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws/ec2metadata"
@@ -26,7 +27,11 @@ func init() {
 	klog.InitFlags(nil)
 	flag.Set("alsologtostderr", "true")
 	flag.Set("v", "4")
+}
+
+func TestMain(m *testing.M) {
 	flag.Parse()
+	os.Exit(m.Run())
 }
 
 func TestGetMetadataClient(t *testing.T) {
