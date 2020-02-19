@@ -29,7 +29,7 @@ func ResetAuthEnvironment() {
 		usernameEnvVar,
 		passwordEnvVar,
 		accountEnvVar,
-		apiUrlEnvVar,
+		apiURLEnvVar,
 	}
 	for _, envvar := range vars {
 		os.Unsetenv(envvar)
@@ -49,7 +49,7 @@ func SetAuthEnvPassword() {
 }
 
 func SetAuthEnvAPIURL(value string) {
-	os.Setenv(apiUrlEnvVar, value)
+	os.Setenv(apiURLEnvVar, value)
 }
 
 func SetAuthEnvAccount() {
