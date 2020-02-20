@@ -1,6 +1,6 @@
 def config
   {
-    cluster_name: 'kubernetes.cluster.local',
+    cluster_name: 'k8s-staging.cluster.local',
     image: 'brightbox/cluster-autoscaler-brightbox',
     tag: 'dev',
     verbose_level: 4,
