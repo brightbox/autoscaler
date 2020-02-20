@@ -34,17 +34,17 @@ const (
 	fakeMinSize               = 1
 	fakeNodeGroupDescription  = "1:4"
 	fakeDefaultSize           = 3
-	fakeNodeGroupId           = "grp-sda44"
+	fakeNodeGroupID           = "grp-sda44"
 	fakeNodeGroupName         = "auto.workers.k8s_fake.cluster.local"
-	fakeNodeGroupImageId      = "img-testy"
-	fakeNodeGroupServerTypeId = "typ-testy"
-	fakeNodeGroupZoneId       = "zon-testy"
-	fakeNodeGroupMainGroupId  = "grp-y6cai"
+	fakeNodeGroupImageID      = "img-testy"
+	fakeNodeGroupServerTypeID = "typ-testy"
+	fakeNodeGroupZoneID       = "zon-testy"
+	fakeNodeGroupMainGroupID  = "grp-y6cai"
 	fakeNodeGroupUserData     = "fake userdata"
 )
 
 var (
-	fakeError     = errors.New("Fake API Error")
+	ErrFake       = errors.New("fake API Error")
 	fakeInstances = []cloudprovider.Instance{
 		cloudprovider.Instance{
 			Id: "brightbox://srv-rp897",
@@ -73,7 +73,7 @@ var (
 			},
 		},
 	}
-	fakeErrorInstances = []cloudprovider.Instance{
+	ErrFakeInstances = []cloudprovider.Instance{
 		cloudprovider.Instance{
 			Id: "brightbox://srv-rp897",
 			Status: &cloudprovider.InstanceStatus{
@@ -111,34 +111,34 @@ func TestSize(t *testing.T) {
 	nodeGroup := makeFakeNodeGroup(testclient)
 	fakeServerGroup := &fakeGroups()[0]
 	t.Run("TargetSize", func(t *testing.T) {
-		mockclient.On("ServerGroup", fakeNodeGroupId).
+		mockclient.On("ServerGroup", fakeNodeGroupID).
 			Return(fakeServerGroup, nil).Once()
 		size, err := nodeGroup.TargetSize()
 		assert.Equal(t, 2, size)
 		assert.NoError(t, err)
 	})
 	t.Run("TargetSizeFail", func(t *testing.T) {
-		mockclient.On("ServerGroup", fakeNodeGroupId).
-			Return(nil, fakeError).Once()
+		mockclient.On("ServerGroup", fakeNodeGroupID).
+			Return(nil, ErrFake).Once()
 		size, err := nodeGroup.TargetSize()
 		assert.Error(t, err)
 		assert.Zero(t, size)
 	})
 	t.Run("CurrentSize", func(t *testing.T) {
-		mockclient.On("ServerGroup", fakeNodeGroupId).
+		mockclient.On("ServerGroup", fakeNodeGroupID).
 			Return(fakeServerGroup, nil).Once()
 		size, err := nodeGroup.CurrentSize()
 		assert.Equal(t, 2, size)
 		assert.NoError(t, err)
 	})
 	t.Run("CurrentSizeFail", func(t *testing.T) {
-		mockclient.On("ServerGroup", fakeNodeGroupId).
-			Return(nil, fakeError).Once()
+		mockclient.On("ServerGroup", fakeNodeGroupID).
+			Return(nil, ErrFake).Once()
 		size, err := nodeGroup.CurrentSize()
 		assert.Error(t, err)
 		assert.Zero(t, size)
 	})
-	mockclient.On("ServerGroup", fakeNodeGroupId).
+	mockclient.On("ServerGroup", fakeNodeGroupID).
 		Return(fakeServerGroup, nil)
 	t.Run("DecreaseTargetSizePositive", func(t *testing.T) {
 		err := nodeGroup.DecreaseTargetSize(0)
@@ -156,12 +156,12 @@ func TestIncreaseSize(t *testing.T) {
 	testclient := k8ssdk.MakeTestClient(mockclient, nil)
 	nodeGroup := makeFakeNodeGroup(testclient)
 	t.Run("Creating details set properly", func(t *testing.T) {
-		assert.Equal(t, fakeNodeGroupId, nodeGroup.id)
+		assert.Equal(t, fakeNodeGroupID, nodeGroup.id)
 		assert.Equal(t, fakeNodeGroupName, *nodeGroup.serverOptions.Name)
-		assert.Equal(t, fakeNodeGroupServerTypeId, nodeGroup.serverOptions.ServerType)
-		assert.Equal(t, fakeNodeGroupImageId, nodeGroup.serverOptions.Image)
-		assert.Equal(t, fakeNodeGroupZoneId, nodeGroup.serverOptions.Zone)
-		assert.ElementsMatch(t, []string{fakeNodeGroupMainGroupId, fakeNodeGroupId}, nodeGroup.serverOptions.ServerGroups)
+		assert.Equal(t, fakeNodeGroupServerTypeID, nodeGroup.serverOptions.ServerType)
+		assert.Equal(t, fakeNodeGroupImageID, nodeGroup.serverOptions.Image)
+		assert.Equal(t, fakeNodeGroupZoneID, nodeGroup.serverOptions.Zone)
+		assert.ElementsMatch(t, []string{fakeNodeGroupMainGroupID, fakeNodeGroupID}, nodeGroup.serverOptions.ServerGroups)
 		assert.Equal(t, fakeNodeGroupUserData, *nodeGroup.serverOptions.UserData)
 	})
 	t.Run("Require positive delta", func(t *testing.T) {
@@ -170,25 +170,25 @@ func TestIncreaseSize(t *testing.T) {
 	})
 	fakeServerGroup := &fakeGroups()[0]
 	t.Run("Don't exceed max size", func(t *testing.T) {
-		mockclient.On("ServerGroup", fakeNodeGroupId).
+		mockclient.On("ServerGroup", fakeNodeGroupID).
 			Return(fakeServerGroup, nil).Once()
 		err := nodeGroup.IncreaseSize(4)
 		assert.Error(t, err)
 	})
 	t.Run("Fail to create one new server", func(t *testing.T) {
-		mockclient.On("ServerGroup", fakeNodeGroupId).
+		mockclient.On("ServerGroup", fakeNodeGroupID).
 			Return(fakeServerGroup, nil).Once()
 		mockclient.On("CreateServer", mock.Anything).
-			Return(nil, fakeError).Once()
+			Return(nil, ErrFake).Once()
 		err := nodeGroup.IncreaseSize(1)
 		assert.Error(t, err)
 	})
 	t.Run("Create one new server", func(t *testing.T) {
-		mockclient.On("ServerGroup", fakeNodeGroupId).
+		mockclient.On("ServerGroup", fakeNodeGroupID).
 			Return(fakeServerGroup, nil).Once()
 		mockclient.On("CreateServer", mock.Anything).
 			Return(nil, nil).Once()
-		mockclient.On("ServerGroup", fakeNodeGroupId).
+		mockclient.On("ServerGroup", fakeNodeGroupID).
 			Return(&fakeServerGroupsPlusOne()[0], nil).Once()
 		err := nodeGroup.IncreaseSize(1)
 		assert.NoError(t, err)
@@ -200,7 +200,7 @@ func TestDeleteNodes(t *testing.T) {
 	testclient := k8ssdk.MakeTestClient(mockclient, nil)
 	nodeGroup := makeFakeNodeGroup(testclient)
 	fakeServerGroup := &fakeGroups()[0]
-	mockclient.On("ServerGroup", fakeNodeGroupId).
+	mockclient.On("ServerGroup", fakeNodeGroupID).
 		Return(fakeServerGroup, nil).
 		On("Server", fakeServer).
 		Return(fakeServertesty(), nil)
@@ -264,7 +264,7 @@ func TestNodes(t *testing.T) {
 	testclient := k8ssdk.MakeTestClient(mockclient, nil)
 	nodeGroup := makeFakeNodeGroup(testclient)
 	fakeServerGroup := &fakeGroups()[0]
-	mockclient.On("ServerGroup", fakeNodeGroupId).
+	mockclient.On("ServerGroup", fakeNodeGroupID).
 		Return(fakeServerGroup, nil)
 	t.Run("Both Active", func(t *testing.T) {
 		fakeServerGroup.Servers[0].Status = "active"
@@ -285,7 +285,7 @@ func TestNodes(t *testing.T) {
 		fakeServerGroup.Servers[1].Status = "unavailable"
 		nodes, err := nodeGroup.Nodes()
 		require.NoError(t, err)
-		assert.ElementsMatch(t, fakeErrorInstances, nodes)
+		assert.ElementsMatch(t, ErrFakeInstances, nodes)
 	})
 }
 
@@ -310,15 +310,15 @@ func TestAutoprovisioned(t *testing.T) {
 }
 
 func makeFakeNodeGroup(brightboxCloudClient *k8ssdk.Cloud) *brightboxNodeGroup {
-	return makeNodeGroupFromApiDetails(
-		fakeNodeGroupId,
+	return makeNodeGroupFromAPIDetails(
+		fakeNodeGroupID,
 		fakeNodeGroupName,
 		fakeNodeGroupDescription,
 		fakeDefaultSize,
-		fakeNodeGroupServerTypeId,
-		fakeNodeGroupImageId,
-		fakeNodeGroupZoneId,
-		fakeNodeGroupMainGroupId,
+		fakeNodeGroupServerTypeID,
+		fakeNodeGroupImageID,
+		fakeNodeGroupZoneID,
+		fakeNodeGroupMainGroupID,
 		fakeNodeGroupUserData,
 		brightboxCloudClient,
 	)
