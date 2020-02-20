@@ -18,11 +18,13 @@ package brightbox
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"regexp"
 	"strings"
 
 	brightbox "github.com/brightbox/gobrightbox"
+	"github.com/brightbox/gobrightbox/status"
 	"github.com/brightbox/k8ssdk"
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -101,19 +103,24 @@ func (b *brightboxCloudProvider) Refresh() error {
 	nodeMap := make(map[string]string)
 	defaultGroup := fetchDefaultGroup(groups, b.ClusterName)
 	for _, group := range groups {
+		maxSize, minSize := getSizesFromDescription(group.Description)
 		switch {
 		case !strings.HasSuffix(group.Name, clusterSuffix):
-			klog.V(4).Infof("Group %q: name doesn't match suffix %q. Ignoring", group.Name, clusterSuffix)
+			klog.V(4).Infof("Group %q: name %q doesn't match suffix %q. Ignoring", group.Id, group.Name, clusterSuffix)
 		case len(group.Servers) < 1:
-			klog.V(4).Infof("Group %q: has no members. Ignoring", group.Name)
+			klog.V(4).Infof("Group %q has no members. Ignoring", group.Id)
+		case maxSize == minSize:
+			klog.V(4).Infof("Group %q has a fixed size. Ignoring", group.Id)
 		default:
+			klog.V(4).Infof("Group %q: looking for node defaults", group.Id)
 			groupType, groupImage, groupZone, err :=
 				b.extractGroupDefaults(group.Servers)
 			if err != nil {
+				klog.V(4).Infof("Group %q: failed to find node defaults", group.Id)
 				return err
 			}
-			klog.V(4).Infof("Group %q: Adding to node group list", group.Name)
-			newNodeGroup := makeNodeGroupFromApiDetails(
+			klog.V(4).Infof("Group %q: Node defaults found. Adding to node group list", group.Id)
+			newNodeGroup := makeNodeGroupFromAPIDetails(
 				group.Id,
 				defaultServerName(group.Name),
 				group.Description,
@@ -273,9 +280,16 @@ func fetchDefaultGroup(groups []brightbox.ServerGroup, clusterName string) strin
 	return ""
 }
 
+type idWithStatus struct {
+	id     string
+	status string
+}
+
 func (b *brightboxCloudProvider) extractGroupDefaults(servers []brightbox.Server) (string, string, string, error) {
 	klog.V(4).Info("extractGroupDefaults")
-	var serverTypeID, imageID, zoneID string
+	const zoneSentinel string = "dummyValue"
+	zoneID := zoneSentinel
+	var serverType, image idWithStatus
 	for _, serverSummary := range servers {
 		server, err := b.GetServer(
 			context.Background(),
@@ -285,25 +299,57 @@ func (b *brightboxCloudProvider) extractGroupDefaults(servers []brightbox.Server
 		if err != nil {
 			return "", "", "", err
 		}
-		imageID = checkForChange(imageID, server.Image.Id, "Group has multiple Image Ids")
-		serverTypeID = checkForChange(serverTypeID, server.ServerType.Id, "Group has multiple ServerType Ids")
-		if zoneID == "" {
-			zoneID = server.Zone.Id
-		} else if zoneID != server.Zone.Id {
-			klog.V(4).Info("Group is zone balanced")
-			zoneID = ""
-			break
-		}
+		image = checkForChange(image, idWithStatus{server.Image.Id, server.Image.Status}, "Group has multiple Image Ids")
+		serverType = checkForChange(serverType, idWithStatus{server.ServerType.Id, server.ServerType.Status}, "Group has multiple ServerType Ids")
+		zoneID = checkZoneForChange(zoneID, server.Zone.Id, zoneSentinel)
 	}
-	return serverTypeID, imageID, zoneID, nil
+	switch {
+	case serverType.id == "":
+		return "", "", "", fmt.Errorf("Unable to determine Server Type details from Group")
+	case image.id == "":
+		return "", "", "", fmt.Errorf("Unable to determine Image details from Group")
+	case zoneID == zoneSentinel:
+		return "", "", "", fmt.Errorf("Unable to determine Zone details from Group")
+	case image.status == status.Deprecated:
+		klog.Warningf("Selected image %q is deprecated. Please update to an available version", image.id)
+	}
+	return serverType.id, image.id, zoneID, nil
 }
 
-func checkForChange(currentID string, newID string, errorMessage string) string {
-	klog.V(4).Info("checkForChange")
-	klog.V(4).Infof("new %q, existing %q", newID, currentID)
-	if currentID == "" || currentID == newID {
-		return newID
+func checkZoneForChange(zoneID string, newZoneID string, sentinel string) string {
+	klog.V(4).Info("checkZoneForChange")
+	klog.V(4).Infof("new %q, existing %q", newZoneID, zoneID)
+	switch zoneID {
+	case newZoneID, sentinel:
+		return newZoneID
+	default:
+		klog.V(4).Info("Group is zone balanced")
+		return ""
 	}
-	klog.Warning(errorMessage)
-	return currentID
+}
+
+func checkForChange(current idWithStatus, newDetails idWithStatus, errorMessage string) idWithStatus {
+	klog.V(4).Info("checkForChange")
+	klog.V(4).Infof("new %v, existing %v", newDetails, current)
+	switch {
+	case newDetails == current:
+		// Skip to end
+	case newDetails.status == status.Available:
+		if current.id == "" || current.status == status.Deprecated {
+			klog.V(4).Infof("Object %q is available. Selecting", newDetails.id)
+			return newDetails
+		}
+		// Multiple ids
+		klog.Warning(errorMessage)
+	case newDetails.status == status.Deprecated:
+		if current.id == "" {
+			klog.V(4).Infof("Object %q is deprecated, but selecting anyway", newDetails.id)
+			return newDetails
+		}
+		// Multiple ids
+		klog.Warning(errorMessage)
+	default:
+		klog.Warningf("Object %q is no longer available. Ignoring.", newDetails.id)
+	}
+	return current
 }
