@@ -24,6 +24,7 @@ import (
 	"time"
 
 	brightbox "github.com/brightbox/gobrightbox"
+	"github.com/brightbox/gobrightbox/status"
 	"github.com/brightbox/k8ssdk"
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -124,8 +125,8 @@ func (ng *brightboxNodeGroup) DeleteNodes(nodes []*apiv1.Node) error {
 		if size <= ng.MinSize() {
 			return fmt.Errorf("min size reached, no further nodes will be deleted")
 		}
-		serverId := k8ssdk.MapProviderIDToServerID(node.Spec.ProviderID)
-		err = ng.deleteServerFromGroup(serverId)
+		serverID := k8ssdk.MapProviderIDToServerID(node.Spec.ProviderID)
+		err = ng.deleteServerFromGroup(serverID)
 		if err != nil {
 			return err
 		}
@@ -158,7 +159,7 @@ func (ng *brightboxNodeGroup) DecreaseTargetSize(delta int) error {
 		return fmt.Errorf("attempt to delete existing nodes targetSize:%d delta:%d existingNodes: %d",
 			size, delta, nodesize)
 	}
-	return fmt.Errorf("Shouldn't have got here!")
+	return fmt.Errorf("shouldn't have got here")
 }
 
 // Id returns an unique identifier of the node group.
@@ -186,25 +187,25 @@ func (ng *brightboxNodeGroup) Nodes() ([]cloudprovider.Instance, error) {
 	klog.V(4).Infof("Found %d servers in group", len(group.Servers))
 	nodes := make([]cloudprovider.Instance, len(group.Servers))
 	for i, server := range group.Servers {
-		status := cloudprovider.InstanceStatus{}
+		cpStatus := cloudprovider.InstanceStatus{}
 		switch server.Status {
-		case "active":
-			status.State = cloudprovider.InstanceRunning
-		case "creating":
-			status.State = cloudprovider.InstanceCreating
-		case "deleting":
-			status.State = cloudprovider.InstanceDeleting
+		case status.Active:
+			cpStatus.State = cloudprovider.InstanceRunning
+		case status.Creating:
+			cpStatus.State = cloudprovider.InstanceCreating
+		case status.Deleting:
+			cpStatus.State = cloudprovider.InstanceDeleting
 		default:
 			errorInfo := cloudprovider.InstanceErrorInfo{
 				ErrorClass:   cloudprovider.OtherErrorClass,
 				ErrorCode:    server.Status,
 				ErrorMessage: server.Status,
 			}
-			status.ErrorInfo = &errorInfo
+			cpStatus.ErrorInfo = &errorInfo
 		}
 		nodes[i] = cloudprovider.Instance{
 			Id:     k8ssdk.MapServerIDToProviderID(server.Id),
-			Status: &status,
+			Status: &cpStatus,
 		}
 	}
 	klog.V(4).Infof("Created %d nodes", len(nodes))
@@ -257,15 +258,15 @@ func (ng *brightboxNodeGroup) Autoprovisioned() bool {
 
 //private
 
-func makeNodeGroupFromApiDetails(
+func makeNodeGroupFromAPIDetails(
 	id string,
 	name string,
 	description string,
 	defaultSize int,
-	defaultServerTypeId string,
-	defaultImageId string,
-	defaultZoneId string,
-	defaultMainGroupId string,
+	defaultServerTypeID string,
+	defaultImageID string,
+	defaultZoneID string,
+	defaultMainGroupID string,
 	defaultUserData string,
 	cloudclient *k8ssdk.Cloud,
 ) *brightboxNodeGroup {
@@ -273,12 +274,12 @@ func makeNodeGroupFromApiDetails(
 	klog.V(4).Infof("Group: %s, Description: %s", id, description)
 	klog.V(4).Infof("Default size: %v", defaultSize)
 	options := &brightbox.ServerOptions{
-		Image:        defaultImageId,
+		Image:        defaultImageID,
 		Name:         &name,
-		ServerType:   defaultServerTypeId,
-		Zone:         defaultZoneId,
+		ServerType:   defaultServerTypeID,
+		Zone:         defaultZoneID,
 		UserData:     &defaultUserData,
-		ServerGroups: []string{defaultMainGroupId, id},
+		ServerGroups: []string{defaultMainGroupID, id},
 	}
 	result := brightboxNodeGroup{
 		id:            id,
@@ -287,19 +288,25 @@ func makeNodeGroupFromApiDetails(
 		serverOptions: options,
 		Cloud:         cloudclient,
 	}
-	sizes := strings.Split(description, ":")
+	result.minSize, result.maxSize = getSizesFromDescription(description)
+	klog.V(4).Info(result.Debug())
+	return &result
+}
+
+func getSizesFromDescription(desc string) (int, int) {
+	var minSize, maxSize int
+	sizes := strings.Split(desc, ":")
 	if len(sizes) == 2 {
 		value, err := strconv.Atoi(sizes[0])
 		if err == nil {
-			result.minSize = value
+			minSize = value
 		}
 		value, err = strconv.Atoi(sizes[1])
 		if err == nil {
-			result.maxSize = value
+			maxSize = value
 		}
 	}
-	klog.V(4).Info(result.Debug())
-	return &result
+	return minSize, maxSize
 }
 
 func (ng *brightboxNodeGroup) createServers(amount int) error {
@@ -314,25 +321,25 @@ func (ng *brightboxNodeGroup) createServers(amount int) error {
 }
 
 // Delete the server and wait for the group details to be updated
-func (ng *brightboxNodeGroup) deleteServerFromGroup(serverId string) error {
-	klog.V(4).Infof("deleteServerFromGroup: %q", serverId)
-	serverIdNotInGroup := func() (bool, error) {
-		return ng.isMissing(serverId)
+func (ng *brightboxNodeGroup) deleteServerFromGroup(serverID string) error {
+	klog.V(4).Infof("deleteServerFromGroup: %q", serverID)
+	serverIDNotInGroup := func() (bool, error) {
+		return ng.isMissing(serverID)
 	}
-	missing, err := serverIdNotInGroup()
+	missing, err := serverIDNotInGroup()
 	if err != nil {
 		return err
 	} else if missing {
-		return fmt.Errorf("%s belongs to a different group than %s", serverId, ng.Id())
+		return fmt.Errorf("%s belongs to a different group than %s", serverID, ng.Id())
 	}
-	err = ng.DestroyServer(serverId)
+	err = ng.DestroyServer(serverID)
 	if err != nil {
 		return err
 	}
 	return wait.Poll(
 		checkInterval,
 		checkTimeout,
-		serverIdNotInGroup,
+		serverIDNotInGroup,
 	)
 }
 
@@ -341,12 +348,12 @@ func serverNotFoundError(id string) error {
 	return fmt.Errorf("Server %s not found", id)
 }
 
-func (ng *brightboxNodeGroup) isMissing(serverId string) (bool, error) {
-	klog.V(4).Infof("isMissing: %q from %q", serverId, ng.Id())
+func (ng *brightboxNodeGroup) isMissing(serverID string) (bool, error) {
+	klog.V(4).Infof("isMissing: %q from %q", serverID, ng.Id())
 	server, err := ng.GetServer(
 		context.Background(),
-		serverId,
-		serverNotFoundError(serverId),
+		serverID,
+		serverNotFoundError(serverID),
 	)
 	if err != nil {
 		return false, err
