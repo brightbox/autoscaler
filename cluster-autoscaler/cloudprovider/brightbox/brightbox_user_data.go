@@ -157,12 +157,12 @@ retry 5 ${kubeadm_join_command}
 `
 )
 
-func defaultUserData(k8s_version, joinCommand string) string {
+func defaultUserData(k8sVersion, joinCommand string) string {
 	klog.V(4).Info("defaultUserData")
-	klog.V(4).Infof("k8s Version: %q", k8s_version)
+	klog.V(4).Infof("k8s Version: %q", k8sVersion)
 	klog.V(4).Infof("Join Command: %q", joinCommand)
 
 	return b64.StdEncoding.EncodeToString([]byte(
-		fmt.Sprintf(preamble, k8s_version, joinCommand) + nodeScript,
+		fmt.Sprintf(preamble, k8sVersion, joinCommand) + nodeScript,
 	))
 }
