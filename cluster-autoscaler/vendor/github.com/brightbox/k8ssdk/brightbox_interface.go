@@ -18,41 +18,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	brightbox "github.com/brightbox/gobrightbox"
 	"github.com/brightbox/gobrightbox/status"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/clientcredentials"
 	"k8s.io/klog"
 )
-
-const (
-	defaultClientID     = "app-dkmch"
-	defaultClientSecret = "uogoelzgt0nwawb"
-	clientEnvVar        = "BRIGHTBOX_CLIENT"
-	clientSecretEnvVar  = "BRIGHTBOX_CLIENT_SECRET"
-	usernameEnvVar      = "BRIGHTBOX_USER_NAME"
-	passwordEnvVar      = "BRIGHTBOX_PASSWORD"
-	accountEnvVar       = "BRIGHTBOX_ACCOUNT"
-	apiURLEnvVar        = "BRIGHTBOX_API_URL"
-
-	defaultTimeoutSeconds = 10
-
-	ValidAcmeDomainStatus = "valid"
-)
-
-var infrastructureScope = []string{"infrastructure"}
-
-type authdetails struct {
-	APIClient string
-	APISecret string
-	UserName  string
-	password  string
-	Account   string
-	APIURL    string
-}
 
 // GetServer retrieves a Brightbox Cloud Server
 func (c *Cloud) GetServer(ctx context.Context, id string, notFoundError error) (*brightbox.Server, error) {
@@ -403,92 +374,6 @@ func getDeposedCloudIPList(cloudIPList []brightbox.CloudIP, id string) []brightb
 		}
 	}
 	return deposedCloudIPList
-}
-
-// obtainCloudClient creates a new Brightbox client using details from
-// the environment
-func obtainCloudClient() (*brightbox.Client, error) {
-	klog.V(4).Infof("obtainCloudClient")
-	config := &authdetails{
-		APIClient: getenvWithDefault(clientEnvVar,
-			defaultClientID),
-		APISecret: getenvWithDefault(clientSecretEnvVar,
-			defaultClientSecret),
-		UserName: os.Getenv(usernameEnvVar),
-		password: os.Getenv(passwordEnvVar),
-		Account:  os.Getenv(accountEnvVar),
-		APIURL:   os.Getenv(apiURLEnvVar),
-	}
-	err := config.validateConfig()
-	if err != nil {
-		return nil, err
-	}
-	return config.authenticatedClient()
-}
-
-// Validate account config entries
-func (authd *authdetails) validateConfig() error {
-	klog.V(4).Infof("validateConfig")
-	if authd.APIClient == defaultClientID &&
-		authd.APISecret == defaultClientSecret {
-		if authd.Account == "" {
-			return fmt.Errorf("must specify Account with User Credentials")
-		}
-	} else {
-		if authd.UserName != "" || authd.password != "" {
-			return fmt.Errorf("User Credentials not used with API Client")
-		}
-	}
-	return nil
-}
-
-// Authenticate the details and return a client
-func (authd *authdetails) authenticatedClient() (*brightbox.Client, error) {
-	ctx := context.Background()
-	switch {
-	case authd.UserName != "" || authd.password != "":
-		return authd.tokenisedAuth(ctx)
-	default:
-		return authd.apiClientAuth(ctx)
-	}
-}
-
-func (authd *authdetails) tokenURL() string {
-	return authd.APIURL + "/token"
-}
-
-func (authd *authdetails) tokenisedAuth(ctx context.Context) (*brightbox.Client, error) {
-	conf := oauth2.Config{
-		ClientID:     authd.APIClient,
-		ClientSecret: authd.APISecret,
-		Scopes:       infrastructureScope,
-		Endpoint: oauth2.Endpoint{
-			TokenURL:  authd.tokenURL(),
-			AuthStyle: oauth2.AuthStyleInHeader,
-		},
-	}
-	klog.V(4).Infof("Obtaining authentication for user %s", authd.UserName)
-	klog.V(4).Infof("Speaking to %s", authd.tokenURL())
-	token, err := conf.PasswordCredentialsToken(ctx, authd.UserName, authd.password)
-	if err != nil {
-		return nil, err
-	}
-	klog.V(4).Infof("Refreshing current token as required")
-	oauthConnection := conf.Client(ctx, token)
-	return brightbox.NewClient(authd.APIURL, authd.Account, oauthConnection)
-}
-
-func (authd *authdetails) apiClientAuth(ctx context.Context) (*brightbox.Client, error) {
-	conf := clientcredentials.Config{
-		ClientID:     authd.APIClient,
-		ClientSecret: authd.APISecret,
-		Scopes:       infrastructureScope,
-		TokenURL:     authd.tokenURL(),
-	}
-	klog.V(4).Infof("Obtaining API client authorisation for client %s", authd.APIClient)
-	klog.V(4).Infof("Speaking to %s", authd.tokenURL())
-	oauthConnection := conf.Client(ctx)
-	return brightbox.NewClient(authd.APIURL, authd.Account, oauthConnection)
 }
 
 func mapServersToServerIds(servers []brightbox.Server) []string {
