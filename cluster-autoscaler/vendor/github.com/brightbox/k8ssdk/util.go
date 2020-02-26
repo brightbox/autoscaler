@@ -56,11 +56,10 @@ func MapZoneHandleToRegion(zoneHandle string) (string, error) {
 // named by the key. If the variable is not present, return the default
 //value instead.
 func getenvWithDefault(key string, defaultValue string) string {
-	if val, exists := os.LookupEnv(key); !exists {
-		return defaultValue
-	} else {
+	if val, exists := os.LookupEnv(key); exists {
 		return val
 	}
+	return defaultValue
 }
 
 //get a list of inserts and deletes that changes oldList into newList
@@ -73,19 +72,19 @@ func getSyncLists(oldList []string, newList []string) ([]string, []string) {
 		switch {
 		case y >= len(newList):
 			delList = append(delList, oldList[x])
-			x += 1
+			x++
 		case x >= len(oldList):
 			insList = append(insList, newList[y])
-			y += 1
+			y++
 		case oldList[x] < newList[y]:
 			delList = append(delList, oldList[x])
-			x += 1
+			x++
 		case oldList[x] > newList[y]:
 			insList = append(insList, newList[y])
-			y += 1
+			y++
 		default:
-			y += 1
-			x += 1
+			y++
+			x++
 		}
 	}
 	return insList, delList
@@ -106,13 +105,10 @@ func sameStringSlice(x, y []string) bool {
 		if _, ok := diff[_y]; !ok {
 			return false
 		}
-		diff[_y] -= 1
+		diff[_y]--
 		if diff[_y] == 0 {
 			delete(diff, _y)
 		}
 	}
-	if len(diff) == 0 {
-		return true
-	}
-	return false
+	return len(diff) == 0
 }
