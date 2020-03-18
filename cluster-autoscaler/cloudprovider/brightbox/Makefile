@@ -3,7 +3,6 @@ deploy: examples/config.rb build
 	ruby $< | \
 	helm template release stable/cluster-autoscaler \
 	--namespace kube-system -f - | \
-	ruby examples/fix_cluster_autoscaler.rb | \
 	kubectl -n kube-system apply -f -
 
 export BUILD_TAGS=brightbox
