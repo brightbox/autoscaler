@@ -2,8 +2,6 @@ def config
   {
     cluster_name: 'kubernetes.cluster.local',
     image: 'brightbox/cluster-autoscaler-brightbox',
-    tag: 'dev',
-    verbose_level: 4,
     secret: 'brightbox-credentials'
   }
 end
@@ -12,7 +10,7 @@ def output(config)
   { 'autoDiscovery' => { 'clusterName' => config[:cluster_name] },
     'cloudProvider' => 'brightbox',
     'image' =>
-    { 'repository' => 'brightbox/cluster-autoscaler-brightbox',
+    { 'repository' => config[:image],
       'tag' => ENV['TAG'],
       'pullPolicy' => 'Always' },
     'tolerations' =>
@@ -21,7 +19,7 @@ def output(config)
       { 'operator' => 'Exists', 'key' => 'CriticalAddonsOnly' }
     ],
     'extraArgs' =>
-    { 'v' => config[:verbose_level].to_s,
+    { 'v' => (ENV['TAG'] == 'dev' ? 4 : 2).to_s,
       'stderrthreshold' => 'info',
       'logtostderr' => true,
       'cluster-name' => config[:cluster_name],
