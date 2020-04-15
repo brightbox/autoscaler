@@ -115,16 +115,16 @@ job.batch "check-env" deleted
 # Running the Autoscaler
 
 1. Edit the `examples/config.rb` file and adjust the config hash.
-2. Change the `image` tag entries to the container you wish to use
-3. Set the `tag` to the version you wish to use
-3. Alter the cluster name and verbose level if
+2. Alter the cluster name if
 required. (If you are using the [Kubernetes Cluster
 Builder](https://github.com/brightbox/kubernetes-cluster), this will be
 `cluster_name` and `cluster_domainname` joined with a '.')
 
 Then generate and apply the manifests
 ```
-$ make deploy
+$ make deploy TAG=<version>
+
+where TAG is the version you wish to use (1.17, 1.18, etc.)
 ```
 As the Brightbox cloud-provider auto-detects and potentially scales all
 the worker groups, the example deployment file runs the autoscaler on
