@@ -123,9 +123,10 @@ Builder](https://github.com/brightbox/kubernetes-cluster), this will be
 Then generate and apply the manifests
 ```
 $ make deploy TAG=<version>
+```
 
 where TAG is the version you wish to use (1.17, 1.18, etc.)
-```
+
 As the Brightbox cloud-provider auto-detects and potentially scales all
 the worker groups, the example deployment file runs the autoscaler on
 the master nodes. This avoids it accidentally killing itself.
@@ -152,4 +153,9 @@ Extract the repository to a machine running docker and then run the make command
 $ make build
 ```
 
-This builds an autoscaler containing only the Brightbox Cloud provider, tagged as `brightbox/cluster-autoscaler-brightbox:dev`.
+This builds an autoscaler containing only the Brightbox Cloud provider, tagged as `brightbox/cluster-autoscaler-brightbox:dev`. To build any other version add a TAG variable
+
+```
+make build TAG=1.1x
+```
+
