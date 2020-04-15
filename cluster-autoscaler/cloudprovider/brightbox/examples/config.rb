@@ -13,7 +13,7 @@ def output(config)
     'cloudProvider' => 'brightbox',
     'image' =>
     { 'repository' => 'brightbox/cluster-autoscaler-brightbox',
-      'tag' => 'dev',
+      'tag' => ENV['TAG'],
       'pullPolicy' => 'Always' },
     'tolerations' =>
     [
