@@ -4,9 +4,12 @@ ifndef TAG
 	override TAG=dev
 endif
 export TAG
+ifeq ($(TAG), dev)
+	deploydeps=build
+endif
 
 .PHONY: deploy
-deploy: examples/config.rb build
+deploy: examples/config.rb $(deploydeps)
 	ruby $< | \
 	helm template release stable/cluster-autoscaler \
 	--namespace kube-system -f - | \
