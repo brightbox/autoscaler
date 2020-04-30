@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider"
 	"k8s.io/klog"
-	schedulernodeinfo "k8s.io/kubernetes/pkg/scheduler/nodeinfo"
+	schedulerframework "k8s.io/kubernetes/pkg/scheduler/framework/v1alpha1"
 )
 
 var (
@@ -221,14 +221,13 @@ func (ng *brightboxNodeGroup) Exist() bool {
 	return err == nil
 }
 
-// TemplateNodeInfo returns a schedulernodeinfo.NodeInfo structure
-// of an empty (as if just started) node. This will be used in scale-up
-// simulations to predict what would a new node look like if a node group was
-// expanded. The returned NodeInfo is expected to have a fully populated Node
-// object, with all of the labels, capacity and allocatable information as
-// well as all pods that are started on the node by default, using manifest
-// (most likely only kube-proxy). Implementation optional.
-func (ng *brightboxNodeGroup) TemplateNodeInfo() (*schedulernodeinfo.NodeInfo, error) {
+// TemplateNodeInfo returns a schedulerframework.NodeInfo structure of an empty
+// (as if just started) node. This will be used in scale-up simulations to
+// predict what would a new node look like if a node group was expanded. The returned
+// NodeInfo is expected to have a fully populated Node object, with all of the labels,
+// capacity and allocatable information as well as all pods that are started on
+// the node by default, using manifest (most likely only kube-proxy). Implementation optional.
+func (ng *brightboxNodeGroup) TemplateNodeInfo() (*schedulerframework.NodeInfo, error) {
 	klog.V(4).Info("TemplateNodeInfo")
 	return nil, cloudprovider.ErrNotImplemented
 }
