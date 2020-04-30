@@ -114,6 +114,7 @@ job.batch "check-env" deleted
 
 # Running the Autoscaler
 
+1. Clone this repository and change into this directory.
 1. Edit the `examples/config.rb` file and adjust the config hash.
 2. Change the `image` tag entries to the container you wish to use
 3. Set the `tag` to the version you wish to use
