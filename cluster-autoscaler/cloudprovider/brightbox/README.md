@@ -114,6 +114,7 @@ job.batch "check-env" deleted
 
 # Running the Autoscaler
 
+1. Clone this repository and change into this directory.
 1. Edit the `examples/config.rb` file and adjust the config hash.
 2. Alter the cluster name if
 required. (If you are using the [Kubernetes Cluster
