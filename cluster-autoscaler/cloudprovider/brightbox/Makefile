@@ -10,6 +10,7 @@ endif
 
 .PHONY: deploy
 deploy: examples/config.rb $(deploydeps)
+	helm repo update
 	ruby $< | \
 	helm template release stable/cluster-autoscaler \
 	--namespace kube-system -f - | \
@@ -17,6 +18,7 @@ deploy: examples/config.rb $(deploydeps)
 
 .PHONY: remove
 remove: examples/config.rb
+	helm repo update
 	ruby $< | \
 	helm template release stable/cluster-autoscaler \
 	--namespace kube-system -f - | \
