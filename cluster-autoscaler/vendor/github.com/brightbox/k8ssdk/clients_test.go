@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws/ec2metadata"
-	"k8s.io/klog"
+	klog "k8s.io/klog/v2"
 )
 
 func init() {
