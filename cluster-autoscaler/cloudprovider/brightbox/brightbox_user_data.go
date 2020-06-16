@@ -20,7 +20,7 @@ import (
 	b64 "encoding/base64"
 	"fmt"
 
-	"k8s.io/klog"
+	klog "k8s.io/klog/v2"
 )
 
 const (
