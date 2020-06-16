@@ -22,7 +22,7 @@ import (
 
 	brightbox "github.com/brightbox/gobrightbox"
 	"github.com/brightbox/gobrightbox/status"
-	"k8s.io/klog"
+	klog "k8s.io/klog/v2"
 )
 
 // GetServer retrieves a Brightbox Cloud Server
