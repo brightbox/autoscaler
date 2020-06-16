@@ -33,7 +33,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider"
 	"k8s.io/autoscaler/cluster-autoscaler/config"
-	"k8s.io/klog"
+	klog "k8s.io/klog/v2"
 )
 
 const (

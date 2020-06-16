@@ -6,7 +6,7 @@ import (
 
 	brightbox "github.com/brightbox/gobrightbox"
 	cache "github.com/patrickmn/go-cache"
-	"k8s.io/klog"
+	klog "k8s.io/klog/v2"
 )
 
 const (
@@ -60,4 +60,22 @@ func (c *Client) ServerGroup(identifier string) (*brightbox.ServerGroup, error) 
 	klog.V(4).Infof("Cacheing %q", identifier)
 	c.clientCache.Set(identifier, serverGroup, cache.DefaultExpiration)
 	return serverGroup, nil
+}
+
+//DestroyServer removes a server by id
+func (c *Client) DestroyServer(identifier string) error {
+	err := c.Client.DestroyServer(identifier)
+	if err == nil {
+		c.clientCache.Delete(identifier)
+	}
+	return err
+}
+
+//DestroyServerGroup removes a server group by id
+func (c *Client) DestroyServerGroup(identifier string) error {
+	err := c.Client.DestroyServerGroup(identifier)
+	if err == nil {
+		c.clientCache.Delete(identifier)
+	}
+	return err
 }
