@@ -67,10 +67,15 @@ cat <<EOF | tee /etc/cni/net.d/99-loopback.conf
 "type": "loopback"
 }
 EOF
+
 cat <<EOF | tee /etc/sysctl.d/40-kubernetes.conf
+net.ipv6.conf.all.forwarding=1
 net.ipv4.ip_forward=1
 net.ipv6.conf.all.disable_ipv6=1
+net.bridge.bridge-nf-call-ip6tables=1
+net.bridge.bridge-nf-call-iptables=1
 EOF
+
 # Required because kubeadm doesn't propagate the nodeRegistration flags properly
 # https://github.com/kubernetes/kubeadm/issues/1021
 cat <<EOF | tee /etc/default/kubelet
@@ -78,7 +83,8 @@ KUBELET_EXTRA_ARGS=--cloud-provider=external --cgroup-driver=systemd
 EOF
 
 echo "Resetting sysctl"
-retry 5 systemctl try-restart systemd-sysctl
+retry 5 modprobe -- br_netfilter
+retry 5 sysctl --system
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -113,12 +119,6 @@ then
 	update-alternatives --set arptables /usr/sbin/arptables-legacy || true
 	update-alternatives --set ebtables /usr/sbin/ebtables-legacy || true
 fi
-
-echo "Loading IPVS modules"
-for word in ip_vs_wrr ip_vs_sh ip_vs ip_vs_rr nf_conntrack_ipv4 br_netfilter
-do
-	modprobe -- ${word}
-done
 
 echo "Installing bash completion"
 kubectl completion bash | tee /etc/bash_completion.d/kubectl >/dev/null 2>&1
