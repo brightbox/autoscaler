@@ -19,8 +19,7 @@ package brightbox
 import (
 	"context"
 	"fmt"
-	"os"
-	"regexp"
+	"strconv"
 	"strings"
 
 	brightbox "github.com/brightbox/gobrightbox"
@@ -36,17 +35,11 @@ import (
 
 const (
 	// GPULabel is added to nodes with GPU resource
-	GPULabel          = "cloud.brightbox.com/gpu-node"
-	joinCommandEnvVar = "BRIGHTBOX_KUBE_JOIN_COMMAND"
-	k8sVersionEnvVar  = "BRIGHTBOX_KUBE_VERSION"
+	GPULabel = "cloud.brightbox.com/gpu-node"
 )
 
 var (
 	availableGPUTypes = map[string]struct{}{}
-	k8sEnvVars        = []string{
-		joinCommandEnvVar,
-		k8sVersionEnvVar,
-	}
 )
 
 // brightboxCloudProvider implements cloudprovider.CloudProvider interface
@@ -94,52 +87,62 @@ func (b *brightboxCloudProvider) NodeGroupForNode(node *apiv1.Node) (cloudprovid
 // change as a result of CloudProvider.Refresh().
 func (b *brightboxCloudProvider) Refresh() error {
 	klog.V(4).Info("Refresh")
-	groups, err := b.GetServerGroups()
+	configmaps, err := b.GetConfigMaps()
 	if err != nil {
 		return err
 	}
 	clusterSuffix := "." + b.ClusterName
 	nodeGroups := make([]cloudprovider.NodeGroup, 0)
 	nodeMap := make(map[string]string)
-	defaultGroup := fetchDefaultGroup(groups, b.ClusterName)
-	for _, group := range groups {
-		maxSize, minSize := getSizesFromDescription(group.Description)
-		switch {
-		case !strings.HasSuffix(group.Name, clusterSuffix):
-			klog.V(4).Infof("Group %q: name %q doesn't match suffix %q. Ignoring", group.Id, group.Name, clusterSuffix)
-		case len(group.Servers) < 1:
-			klog.V(4).Infof("Group %q has no members. Ignoring", group.Id)
-		case maxSize == minSize:
-			klog.V(4).Infof("Group %q has a fixed size. Ignoring", group.Id)
-		default:
-			klog.V(4).Infof("Group %q: looking for node defaults", group.Id)
-			groupType, groupImage, groupZone, err :=
-				b.extractGroupDefaults(group.Servers)
-			if err != nil {
-				klog.V(4).Infof("Group %q: failed to find node defaults", group.Id)
-				return err
-			}
-			klog.V(4).Infof("Group %q: Node defaults found. Adding to node group list", group.Id)
-			newNodeGroup := makeNodeGroupFromAPIDetails(
-				group.Id,
-				defaultServerName(group.Name),
-				group.Description,
-				len(group.Servers),
-				groupType,
-				groupImage,
-				groupZone,
-				defaultGroup,
-				defaultUserData(
-					strings.TrimSpace(os.Getenv(k8sVersionEnvVar)),
-					strings.TrimSpace(os.Getenv(joinCommandEnvVar)),
-				),
-				b.Cloud,
-			)
-			for _, server := range group.Servers {
-				nodeMap[server.Id] = group.Id
-			}
-			nodeGroups = append(nodeGroups, newNodeGroup)
+	for _, configMapOutline := range configmaps {
+		if !strings.HasSuffix(configMapOutline.Name, clusterSuffix) {
+			klog.V(4).Infof("name %q doesn't match suffix %q. Ignoring %q", configMapOutline.Name, clusterSuffix, configMapOutline.Id)
+			continue
 		}
+		configMap, err := b.GetConfigMap(configMapOutline.Id)
+		if err != nil {
+			return err
+		}
+		klog.V(6).Infof("ConfigMap %+v", configMap)
+		mapData := make(map[string]string)
+		for k, v := range configMap.Data {
+			element, ok := v.(string)
+			if !ok {
+				return fmt.Errorf("Unexpected value for key %q in configMap %q", k, configMap.Id)
+			}
+			mapData[k] = element
+		}
+		klog.V(6).Infof("MapData: %+v", mapData)
+		minSize, err := strconv.Atoi(mapData["min"])
+		if err != nil {
+			klog.V(4).Info("Unable to retrieve minimum size. Ignoring")
+			continue
+		}
+		maxSize, err := strconv.Atoi(mapData["max"])
+		if err != nil {
+			klog.V(4).Info("Unable to retrieve maximum size. Ignoring")
+			continue
+		}
+		if minSize == maxSize {
+			klog.V(4).Infof("Group %q has a fixed size %d. Ignoring", mapData["server_group"], minSize)
+			continue
+		}
+		klog.V(4).Infof("Group %q: Node defaults found in %q. Adding to node group list", configMap.Data["server_group"], configMap.Id)
+		newNodeGroup := makeNodeGroupFromAPIDetails(
+			defaultServerName(configMap.Name),
+			mapData,
+			minSize,
+			maxSize,
+			b.Cloud,
+		)
+		group, err := b.GetServerGroup(newNodeGroup.Id())
+		if err != nil {
+			return err
+		}
+		for _, server := range group.Servers {
+			nodeMap[server.Id] = group.Id
+		}
+		nodeGroups = append(nodeGroups, newNodeGroup)
 	}
 	b.nodeGroups = nodeGroups
 	b.nodeMap = nodeMap
@@ -215,8 +218,6 @@ func BuildBrightbox(
 	if opts.ClusterName == "" {
 		klog.Fatal("Set the cluster name option to the Fully Qualified Internal Domain Name of the cluster")
 	}
-	validateEnvironment()
-	validateJoinCommand()
 	newCloudProvider := &brightboxCloudProvider{
 		ClusterName:     opts.ClusterName,
 		resourceLimiter: rl,
@@ -230,26 +231,6 @@ func BuildBrightbox(
 }
 
 //private
-
-func validateEnvironment() {
-	klog.V(4).Info("validateEnvironment")
-	for _, envVar := range k8sEnvVars {
-		if _, ok := os.LookupEnv(envVar); !ok {
-			klog.Fatalf("Required Environment Variable %q not set", envVar)
-		}
-	}
-}
-
-func validateJoinCommand() {
-	klog.V(4).Info("validateJoinCommand")
-	const sanitiseKubeadmCommand string = `^kubeadm +join +[0-9\.]+:[0-9]+ +--token +[a-z0-9]{6}\.[a-z0-9]{16} +--discovery-token-ca-cert-hash +sha256:[0-9a-f]+$`
-	re := regexp.MustCompile(sanitiseKubeadmCommand)
-	command := strings.TrimSpace(os.Getenv(joinCommandEnvVar))
-	if !re.MatchString(command) {
-		klog.Infof("Join Command: %q", command)
-		klog.Fatalf("Join Command does not match sanitisation pattern")
-	}
-}
 
 func (b *brightboxCloudProvider) findNodeGroup(groupID string) cloudprovider.NodeGroup {
 	klog.V(4).Info("findNodeGroup")
