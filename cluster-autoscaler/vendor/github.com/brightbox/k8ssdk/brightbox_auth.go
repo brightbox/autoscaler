@@ -22,7 +22,7 @@ import (
 	"github.com/brightbox/k8ssdk/cached"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
-	"k8s.io/klog"
+	klog "k8s.io/klog/v2"
 )
 
 const (
