@@ -1,4 +1,4 @@
-// Copyright 2018 Brightbox Systems Ltd
+// Copyright 2020 Brightbox Systems Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -91,4 +91,16 @@ type CloudAccess interface {
 
 	// DestroyCloudIP issues a request to destroy the cloud ip
 	DestroyCloudIP(identifier string) error
+
+	// ConfigMaps retrieves a list of all config maps
+	ConfigMaps() ([]brightbox.ConfigMap, error)
+
+	// ConfigMap retrieves a detailed view on one config map
+	ConfigMap(identifier string) (*brightbox.ConfigMap, error)
+
+	// ServerTypes retrieves a list of all server types
+	ServerTypes() ([]brightbox.ServerType, error)
+
+	// ServerType retrieves a detailed view on one server type
+	ServerType(identifier string) (*brightbox.ServerType, error)
 }
