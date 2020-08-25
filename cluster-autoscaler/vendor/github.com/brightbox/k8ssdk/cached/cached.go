@@ -1,3 +1,17 @@
+// Copyright 2020 Brightbox Systems Ltd
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package cached
 
 import (
@@ -60,6 +74,21 @@ func (c *Client) ServerGroup(identifier string) (*brightbox.ServerGroup, error) 
 	klog.V(4).Infof("Cacheing %q", identifier)
 	c.clientCache.Set(identifier, serverGroup, cache.DefaultExpiration)
 	return serverGroup, nil
+}
+
+//ConfigMap fetches a config map by id
+func (c *Client) ConfigMap(identifier string) (*brightbox.ConfigMap, error) {
+	if cachedConfigMap, found := c.clientCache.Get(identifier); found {
+		klog.V(4).Infof("Cache hit %q", identifier)
+		return cachedConfigMap.(*brightbox.ConfigMap), nil
+	}
+	configMap, err := c.Client.ConfigMap(identifier)
+	if err != nil {
+		return nil, err
+	}
+	klog.V(4).Infof("Cacheing %q", identifier)
+	c.clientCache.Set(identifier, configMap, cache.DefaultExpiration)
+	return configMap, nil
 }
 
 //DestroyServer removes a server by id
