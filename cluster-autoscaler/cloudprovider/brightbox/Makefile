@@ -28,7 +28,7 @@ secret: ${HOME}/.docker/config.json
 	    --from-file=.dockerconfigjson=$? \
 	    --type=kubernetes.io/dockerconfigjson
 
-../../cluster-autoscaler: brightbox_cloud_provider.go brightbox_node_group.go brightbox_user_data.go
+../../cluster-autoscaler: brightbox_cloud_provider.go brightbox_node_group.go
 	$(MAKE) -C $(@D) container
 	docker push ${REGISTRY}/cluster-autoscaler-${BUILD_TAGS}:${TAG}
 
