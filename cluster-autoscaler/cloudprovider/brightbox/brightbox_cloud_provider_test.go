@@ -134,11 +134,8 @@ func TestNodeGroupForNode(t *testing.T) {
 
 func TestBuildBrightBox(t *testing.T) {
 	ts := k8ssdk.GetAuthEnvTokenHandler(t)
-	defer resetK8sEnvironment()
 	defer k8ssdk.ResetAuthEnvironment()
 	defer ts.Close()
-	setK8sEnvJoinCommand()
-	setK8sEnvVersion()
 	rl := cloudprovider.NewResourceLimiter(nil, nil)
 	do := cloudprovider.NodeGroupDiscoveryOptions{}
 	opts := config.AutoscalingOptions{
@@ -169,67 +166,12 @@ func testOsExit(t *testing.T, funcName string, testFunc func(*testing.T)) {
 func TestBuildBrightboxMissingClusterName(t *testing.T) {
 	testOsExit(t, "TestBuildBrightboxMissingClusterName", func(t *testing.T) {
 		ts := k8ssdk.GetAuthEnvTokenHandler(t)
-		defer resetK8sEnvironment()
 		defer k8ssdk.ResetAuthEnvironment()
 		defer ts.Close()
-		setK8sEnvJoinCommand()
-		setK8sEnvVersion()
 		rl := cloudprovider.NewResourceLimiter(nil, nil)
 		do := cloudprovider.NodeGroupDiscoveryOptions{}
 		opts := config.AutoscalingOptions{
 			CloudProviderName: cloudprovider.BrightboxProviderName,
-		}
-		BuildBrightbox(opts, do, rl)
-	})
-}
-
-func TestBuildBrightboxMissingJoinCommand(t *testing.T) {
-	testOsExit(t, "TestBuildBrightboxMissingJoinCommand", func(t *testing.T) {
-		ts := k8ssdk.GetAuthEnvTokenHandler(t)
-		defer resetK8sEnvironment()
-		defer k8ssdk.ResetAuthEnvironment()
-		defer ts.Close()
-		setK8sEnvVersion()
-		rl := cloudprovider.NewResourceLimiter(nil, nil)
-		do := cloudprovider.NodeGroupDiscoveryOptions{}
-		opts := config.AutoscalingOptions{
-			CloudProviderName: cloudprovider.BrightboxProviderName,
-			ClusterName:       fakeClusterName,
-		}
-		BuildBrightbox(opts, do, rl)
-	})
-}
-
-func TestBuildBrightboxDodgyJoinCommand(t *testing.T) {
-	testOsExit(t, "TestBuildBrightboxDodgyJoinCommand", func(t *testing.T) {
-		ts := k8ssdk.GetAuthEnvTokenHandler(t)
-		defer resetK8sEnvironment()
-		defer k8ssdk.ResetAuthEnvironment()
-		defer ts.Close()
-		setK8sEnvDodgyJoinCommand()
-		setK8sEnvVersion()
-		rl := cloudprovider.NewResourceLimiter(nil, nil)
-		do := cloudprovider.NodeGroupDiscoveryOptions{}
-		opts := config.AutoscalingOptions{
-			CloudProviderName: cloudprovider.BrightboxProviderName,
-			ClusterName:       fakeClusterName,
-		}
-		BuildBrightbox(opts, do, rl)
-	})
-}
-
-func TestBuildBrightboxMissingk8sVersion(t *testing.T) {
-	testOsExit(t, "TestBuildBrightboxMissingJoinCommand", func(t *testing.T) {
-		ts := k8ssdk.GetAuthEnvTokenHandler(t)
-		defer resetK8sEnvironment()
-		defer k8ssdk.ResetAuthEnvironment()
-		defer ts.Close()
-		setK8sEnvJoinCommand()
-		rl := cloudprovider.NewResourceLimiter(nil, nil)
-		do := cloudprovider.NodeGroupDiscoveryOptions{}
-		opts := config.AutoscalingOptions{
-			CloudProviderName: cloudprovider.BrightboxProviderName,
-			ClusterName:       fakeClusterName,
 		}
 		BuildBrightbox(opts, do, rl)
 	})
@@ -240,9 +182,9 @@ func TestRefresh(t *testing.T) {
 	testclient := k8ssdk.MakeTestClient(mockclient, nil)
 	provider := makeFakeCloudProvider(testclient)
 	groups := fakeGroups()
-	mockclient.On("ServerGroups").Return(groups, nil)
-	mockclient.On("Server", "srv-lv426").Return(fakeServerlv426(), nil)
-	mockclient.On("Server", "srv-rp897").Return(fakeServerrp897(), nil)
+	mockclient.On("ServerGroup", "grp-sda44").Return(fakeServerGroupsda44(), nil)
+	mockclient.On("ConfigMaps").Return(fakeConfigMaps(), nil)
+	mockclient.On("ConfigMap", "cfg-502vh").Return(fakeConfigMap502vh(), nil)
 	err := provider.Refresh()
 	require.NoError(t, err)
 	assert.Len(t, provider.nodeGroups, 1)
@@ -260,10 +202,10 @@ func TestRefresh(t *testing.T) {
 
 func TestFetchDefaultGroup(t *testing.T) {
 	groups := fakeGroups()
-	groupId := fetchDefaultGroup(groups, "fred")
-	assert.Empty(t, groupId)
-	groupId = fetchDefaultGroup(groups, groups[0].Name)
-	assert.Equal(t, groups[0].Id, groupId)
+	groupID := fetchDefaultGroup(groups, "fred")
+	assert.Empty(t, groupID)
+	groupID = fetchDefaultGroup(groups, groups[0].Name)
+	assert.Equal(t, groups[0].Id, groupID)
 }
 
 func makeNode(serverID string) *v1.Node {
@@ -280,6 +222,110 @@ func makeFakeCloudProvider(brightboxCloudClient *k8ssdk.Cloud) *brightboxCloudPr
 		ClusterName:     fakeClusterName,
 		Cloud:           brightboxCloudClient,
 	}
+}
+
+func fakeConfigMaps() []brightbox.ConfigMap {
+	const groupjson = `
+[{
+  "id": "cfg-502vh",
+  "resource_type": "config_map",
+  "url": "https://api.gb1.brightbox.com/1.0/config_maps/cfg-502vh",
+  "name": "storage.k8s-fake.cluster.local",
+  "data": {
+   "image": "img-svqx9",
+   "max": "4",
+   "min": "1",
+   "region": "gb1",
+   "server_group": "grp-sda44",
+   "default_group": "grp-vnr33",
+   "type": "2gb.ssd",
+   "user_data": "fake_userdata",
+   "zone": ""
+  }
+ }]
+     `
+	var result []brightbox.ConfigMap
+	_ = json.NewDecoder(strings.NewReader(groupjson)).Decode(&result)
+	return result
+}
+
+func fakeConfigMap502vh() *brightbox.ConfigMap {
+	const groupjson = `
+{
+  "id": "cfg-502vh",
+  "resource_type": "config_map",
+  "url": "https://api.gb1.brightbox.com/1.0/config_maps/cfg-502vh",
+  "name": "storage.k8s-fake.cluster.local",
+  "data": {
+   "image": "img-svqx9",
+   "max": "4",
+   "min": "1",
+   "region": "gb1",
+   "server_group": "grp-sda44",
+   "default_group": "grp-vnr33",
+   "type": "2gb.ssd",
+   "user_data": "fake_userdata",
+   "zone": ""
+  }
+ }
+     `
+	var result brightbox.ConfigMap
+	_ = json.NewDecoder(strings.NewReader(groupjson)).Decode(&result)
+	return &result
+}
+
+func fakeServerGroupsda44() *brightbox.ServerGroup {
+	const groupjson = `
+{"id": "grp-sda44",
+  "resource_type": "server_group",
+  "url": "https://api.gb1.brightbox.com/1.0/server_groups/grp-sda44",
+  "name": "storage.k8s-fake.cluster.local",
+  "description": "1:4",
+  "created_at": "2011-10-01T00:00:00Z",
+  "default": true,
+  "account":
+   {"id": "acc-43ks4",
+    "resource_type": "account",
+    "url": "https://api.gb1.brightbox.com/1.0/accounts/acc-43ks4",
+    "name": "Brightbox",
+    "status": "active"},
+  "firewall_policy":
+   {"id": "fwp-j3654",
+    "resource_type": "firewall_policy",
+    "url": "https://api.gb1.brightbox.com/1.0/firewall_policies/fwp-j3654",
+    "default": true,
+    "name": "default",
+    "created_at": "2011-10-01T00:00:00Z",
+    "description": null},
+  "servers":
+   [
+   {"id": "srv-lv426",
+     "resource_type": "server",
+     "url": "https://api.gb1.brightbox.com/1.0/servers/srv-lv426",
+     "name": "",
+     "status": "active",
+     "locked": false,
+     "hostname": "srv-lv426",
+     "fqdn": "srv-lv426.gb1.brightbox.com",
+     "created_at": "2011-10-01T01:00:00Z",
+     "started_at": "2011-10-01T01:01:00Z",
+     "deleted_at": null},
+   {"id": "srv-rp897",
+     "resource_type": "server",
+     "url": "https://api.gb1.brightbox.com/1.0/servers/srv-rp897",
+     "name": "",
+     "status": "active",
+     "locked": false,
+     "hostname": "srv-rp897",
+     "fqdn": "srv-rp897.gb1.brightbox.com",
+     "created_at": "2011-10-01T01:00:00Z",
+     "started_at": "2011-10-01T01:01:00Z",
+     "deleted_at": null}
+     ]}
+     `
+	var result brightbox.ServerGroup
+	_ = json.NewDecoder(strings.NewReader(groupjson)).Decode(&result)
+	return &result
 }
 
 func fakeGroups() []brightbox.ServerGroup {
@@ -419,6 +465,23 @@ func fakeServerlv426() *brightbox.Server {
     "default": true}]}
 `
 	var result brightbox.Server
+	_ = json.NewDecoder(strings.NewReader(serverjson)).Decode(&result)
+	return &result
+}
+
+func fakeServerTypezx45f() *brightbox.ServerType {
+	const serverjson = `
+{"id": "typ-zx45f",
+  "resource_type": "server_type",
+  "url": "https://api.gb1.brightbox.com/1.0/server_types/typ-zx45f",
+  "name": "Small",
+  "status": "available",
+  "cores": 2,
+  "ram": 2048,
+  "disk_size": 81920,
+  "handle": "small"}
+`
+	var result brightbox.ServerType
 	_ = json.NewDecoder(strings.NewReader(serverjson)).Decode(&result)
 	return &result
 }
@@ -669,22 +732,4 @@ func deletedFakeServer(server *brightbox.Server) *brightbox.Server {
 	result.Status = "deleted"
 	result.ServerGroups = []brightbox.ServerGroup{}
 	return &result
-}
-
-func setK8sEnvJoinCommand() {
-	os.Setenv(joinCommandEnvVar, "kubeadm join 109.107.39.68:6443 --token g2wygf.grde9094nw036rgh     --discovery-token-ca-cert-hash sha256:dc2f4180fa1dd7b579e4689277394cb820ebbe0f11e189982f8742051d3c1fcc\n")
-}
-
-func setK8sEnvDodgyJoinCommand() {
-	os.Setenv(joinCommandEnvVar, "kubeadm join 109.107.39.68:6443 --token fxzk7c.yzewd3rk1diulre9     --discovery-token-ca-cert-hash sha256:dc2f4180fa1dd7b579e4689277394cb820ebbe0f11e189982f8742051d3c1fcc;run dodgy things")
-}
-
-func setK8sEnvVersion() {
-	os.Setenv(k8sVersionEnvVar, "1.15.20")
-}
-
-func resetK8sEnvironment() {
-	for _, envvar := range k8sEnvVars {
-		os.Unsetenv(envvar)
-	}
 }
