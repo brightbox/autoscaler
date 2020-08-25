@@ -1,4 +1,4 @@
-// Copyright 2019 Brightbox Systems Ltd
+// Copyright 2020 Brightbox Systems Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -81,6 +81,52 @@ func (_m *CloudAccess) CloudIPs() ([]brightbox.CloudIP, error) {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]brightbox.CloudIP)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ConfigMap provides a mock function with given fields: identifier
+func (_m *CloudAccess) ConfigMap(identifier string) (*brightbox.ConfigMap, error) {
+	ret := _m.Called(identifier)
+
+	var r0 *brightbox.ConfigMap
+	if rf, ok := ret.Get(0).(func(string) *brightbox.ConfigMap); ok {
+		r0 = rf(identifier)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*brightbox.ConfigMap)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(identifier)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ConfigMaps provides a mock function with given fields:
+func (_m *CloudAccess) ConfigMaps() ([]brightbox.ConfigMap, error) {
+	ret := _m.Called()
+
+	var r0 []brightbox.ConfigMap
+	if rf, ok := ret.Get(0).(func() []brightbox.ConfigMap); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]brightbox.ConfigMap)
 		}
 	}
 
@@ -464,6 +510,52 @@ func (_m *CloudAccess) ServerGroups() ([]brightbox.ServerGroup, error) {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]brightbox.ServerGroup)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ServerType provides a mock function with given fields: identifier
+func (_m *CloudAccess) ServerType(identifier string) (*brightbox.ServerType, error) {
+	ret := _m.Called(identifier)
+
+	var r0 *brightbox.ServerType
+	if rf, ok := ret.Get(0).(func(string) *brightbox.ServerType); ok {
+		r0 = rf(identifier)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*brightbox.ServerType)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(identifier)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ServerTypes provides a mock function with given fields:
+func (_m *CloudAccess) ServerTypes() ([]brightbox.ServerType, error) {
+	ret := _m.Called()
+
+	var r0 []brightbox.ServerType
+	if rf, ok := ret.Get(0).(func() []brightbox.ServerType); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]brightbox.ServerType)
 		}
 	}
 
