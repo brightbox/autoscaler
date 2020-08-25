@@ -19,7 +19,6 @@ package brightbox
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -31,6 +30,17 @@ import (
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider"
 	klog "k8s.io/klog/v2"
 	schedulerframework "k8s.io/kubernetes/pkg/scheduler/framework/v1alpha1"
+	//schedulerframework "k8s.io/kubernetes/pkg/scheduler/nodeinfo"
+)
+
+const (
+	// Allocatable Resources reserves
+	// Reserve 4% of memory
+	memoryReservePercent = 4
+	// with a minimum of 160MB
+	minimumMemoryReserve = 167772160
+	// Reserve 5GB of disk space
+	minimumDiskReserve = 5368709120
 )
 
 var (
@@ -229,7 +239,30 @@ func (ng *brightboxNodeGroup) Exist() bool {
 // the node by default, using manifest (most likely only kube-proxy). Implementation optional.
 func (ng *brightboxNodeGroup) TemplateNodeInfo() (*schedulerframework.NodeInfo, error) {
 	klog.V(4).Info("TemplateNodeInfo")
-	return nil, cloudprovider.ErrNotImplemented
+	klog.V(4).Infof("Looking for server type %q", ng.serverOptions.ServerType)
+	serverType, err := ng.findServerType()
+	if err != nil {
+		return nil, err
+	}
+	klog.V(4).Infof("ServerType %+v", serverType)
+	// AllowedPodNumber is the kubelet default. The way to obtain that default programmatically
+	// has been lost in a twisty maze of endless indirection.
+	resources := &schedulerframework.Resource{
+		MilliCPU:         int64(serverType.Cores * 1000),
+		Memory:           int64(serverType.Ram * 1024 * 1024),
+		EphemeralStorage: int64(serverType.DiskSize * 1024 * 1024),
+		AllowedPodNumber: 110,
+	}
+	node := apiv1.Node{
+		Status: apiv1.NodeStatus{
+			Capacity:    resources.ResourceList(),
+			Allocatable: applyFudgeFactor(resources).ResourceList(),
+			Conditions:  cloudprovider.BuildReadyConditions(),
+		},
+	}
+	nodeInfo := schedulerframework.NewNodeInfo(cloudprovider.BuildKubeProxy(ng.Id()))
+	nodeInfo.SetNode(&node)
+	return nodeInfo, nil
 }
 
 // Create creates the node group on the cloud provider
@@ -257,55 +290,63 @@ func (ng *brightboxNodeGroup) Autoprovisioned() bool {
 
 //private
 
+func (ng *brightboxNodeGroup) findServerType() (*brightbox.ServerType, error) {
+	handle := ng.serverOptions.ServerType
+	if strings.HasPrefix(handle, "typ-") {
+		return ng.GetServerType(handle)
+	}
+	servertypes, err := ng.GetServerTypes()
+	if err != nil {
+		return nil, err
+	}
+	for _, servertype := range servertypes {
+		if servertype.Handle == handle {
+			return &servertype, nil
+		}
+	}
+	return nil, fmt.Errorf("ServerType with handle '%s' doesn't exist", handle)
+}
+
+func max(x, y int64) int64 {
+	if x > y {
+		return x
+	}
+	return y
+}
+
+func applyFudgeFactor(capacity *schedulerframework.Resource) *schedulerframework.Resource {
+	allocatable := capacity.Clone()
+	allocatable.Memory = max(0, capacity.Memory-max(capacity.Memory*memoryReservePercent/100, minimumMemoryReserve))
+	allocatable.EphemeralStorage = max(0, capacity.EphemeralStorage-minimumDiskReserve)
+	return allocatable
+}
+
 func makeNodeGroupFromAPIDetails(
-	id string,
 	name string,
-	description string,
-	defaultSize int,
-	defaultServerTypeID string,
-	defaultImageID string,
-	defaultZoneID string,
-	defaultMainGroupID string,
-	defaultUserData string,
+	mapData map[string]string,
+	minSize int,
+	maxSize int,
 	cloudclient *k8ssdk.Cloud,
 ) *brightboxNodeGroup {
 	klog.V(4).Info("makeNodeGroupFromApiDetails")
-	klog.V(4).Infof("Group: %s, Description: %s", id, description)
-	klog.V(4).Infof("Default size: %v", defaultSize)
+	userData := mapData["user_data"]
 	options := &brightbox.ServerOptions{
-		Image:        defaultImageID,
+		Image:        mapData["image"],
 		Name:         &name,
-		ServerType:   defaultServerTypeID,
-		Zone:         defaultZoneID,
-		UserData:     &defaultUserData,
-		ServerGroups: []string{defaultMainGroupID, id},
+		ServerType:   mapData["type"],
+		Zone:         mapData["zone"],
+		UserData:     &userData,
+		ServerGroups: []string{mapData["default_group"], mapData["server_group"]},
 	}
 	result := brightboxNodeGroup{
-		id:            id,
-		minSize:       defaultSize,
-		maxSize:       defaultSize,
+		id:            mapData["server_group"],
+		minSize:       minSize,
+		maxSize:       maxSize,
 		serverOptions: options,
 		Cloud:         cloudclient,
 	}
-	result.minSize, result.maxSize = getSizesFromDescription(description)
 	klog.V(4).Info(result.Debug())
 	return &result
-}
-
-func getSizesFromDescription(desc string) (int, int) {
-	var minSize, maxSize int
-	sizes := strings.Split(desc, ":")
-	if len(sizes) == 2 {
-		value, err := strconv.Atoi(sizes[0])
-		if err == nil {
-			minSize = value
-		}
-		value, err = strconv.Atoi(sizes[1])
-		if err == nil {
-			maxSize = value
-		}
-	}
-	return minSize, maxSize
 }
 
 func (ng *brightboxNodeGroup) createServers(amount int) error {
