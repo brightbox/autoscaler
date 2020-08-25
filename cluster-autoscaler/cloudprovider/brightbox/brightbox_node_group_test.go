@@ -18,6 +18,7 @@ package brightbox
 
 import (
 	"errors"
+	"strconv"
 	"testing"
 
 	"github.com/brightbox/k8ssdk"
@@ -27,23 +28,36 @@ import (
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider"
+	schedulerframework "k8s.io/kubernetes/pkg/scheduler/framework/v1alpha1"
+	//schedulerframework "k8s.io/kubernetes/pkg/scheduler/nodeinfo"
 )
 
 const (
-	fakeMaxSize               = 4
-	fakeMinSize               = 1
-	fakeNodeGroupDescription  = "1:4"
-	fakeDefaultSize           = 3
-	fakeNodeGroupID           = "grp-sda44"
-	fakeNodeGroupName         = "auto.workers.k8s_fake.cluster.local"
-	fakeNodeGroupImageID      = "img-testy"
-	fakeNodeGroupServerTypeID = "typ-testy"
-	fakeNodeGroupZoneID       = "zon-testy"
-	fakeNodeGroupMainGroupID  = "grp-y6cai"
-	fakeNodeGroupUserData     = "fake userdata"
+	fakeMaxSize                   = 4
+	fakeMinSize                   = 1
+	fakeNodeGroupDescription      = "1:4"
+	fakeDefaultSize               = 3
+	fakeNodeGroupID               = "grp-sda44"
+	fakeNodeGroupName             = "auto.workers.k8s_fake.cluster.local"
+	fakeNodeGroupImageID          = "img-testy"
+	fakeNodeGroupServerTypeID     = "typ-zx45f"
+	fakeNodeGroupServerTypeHandle = "small"
+	fakeNodeGroupZoneID           = "zon-testy"
+	fakeNodeGroupMainGroupID      = "grp-y6cai"
+	fakeNodeGroupUserData         = "fake userdata"
 )
 
 var (
+	fakeMapData = map[string]string{
+		"min":           strconv.Itoa(fakeMinSize),
+		"max":           strconv.Itoa(fakeMaxSize),
+		"server_group":  fakeNodeGroupID,
+		"default_group": fakeNodeGroupMainGroupID,
+		"image":         fakeNodeGroupImageID,
+		"type":          fakeNodeGroupServerTypeID,
+		"zone":          fakeNodeGroupZoneID,
+		"user_data":     fakeNodeGroupUserData,
+	}
 	ErrFake       = errors.New("fake API Error")
 	fakeInstances = []cloudprovider.Instance{
 		{
@@ -290,36 +304,44 @@ func TestNodes(t *testing.T) {
 }
 
 func TestTemplateNodeInfo(t *testing.T) {
-	obj, err := makeFakeNodeGroup(nil).TemplateNodeInfo()
-	assert.Equal(t, err, cloudprovider.ErrNotImplemented)
-	assert.Nil(t, obj)
+	mockclient := new(mocks.CloudAccess)
+	testclient := k8ssdk.MakeTestClient(mockclient, nil)
+	mockclient.On("ServerType", fakeNodeGroupServerTypeID).
+		Return(fakeServerTypezx45f(), nil)
+	obj, err := makeFakeNodeGroup(testclient).TemplateNodeInfo()
+	require.NoError(t, err)
+	assert.Equal(t, fakeResource(), obj.Allocatable)
 }
 
 func TestCreate(t *testing.T) {
 	obj, err := makeFakeNodeGroup(nil).Create()
-	assert.Equal(t, err, cloudprovider.ErrNotImplemented)
+	assert.Equal(t, cloudprovider.ErrNotImplemented, err)
 	assert.Nil(t, obj)
 }
 
 func TestDelete(t *testing.T) {
-	assert.Equal(t, makeFakeNodeGroup(nil).Delete(), cloudprovider.ErrNotImplemented)
+	assert.Equal(t, cloudprovider.ErrNotImplemented, makeFakeNodeGroup(nil).Delete())
 }
 
 func TestAutoprovisioned(t *testing.T) {
 	assert.False(t, makeFakeNodeGroup(nil).Autoprovisioned())
 }
 
+func fakeResource() *schedulerframework.Resource {
+	return &schedulerframework.Resource{
+		MilliCPU:         2000,
+		Memory:           1979711488,
+		EphemeralStorage: 80530636800,
+		AllowedPodNumber: 110,
+	}
+}
+
 func makeFakeNodeGroup(brightboxCloudClient *k8ssdk.Cloud) *brightboxNodeGroup {
 	return makeNodeGroupFromAPIDetails(
-		fakeNodeGroupID,
 		fakeNodeGroupName,
-		fakeNodeGroupDescription,
-		fakeDefaultSize,
-		fakeNodeGroupServerTypeID,
-		fakeNodeGroupImageID,
-		fakeNodeGroupZoneID,
-		fakeNodeGroupMainGroupID,
-		fakeNodeGroupUserData,
+		fakeMapData,
+		fakeMinSize,
+		fakeMaxSize,
 		brightboxCloudClient,
 	)
 }
