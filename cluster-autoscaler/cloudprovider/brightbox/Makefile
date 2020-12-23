@@ -32,6 +32,7 @@ secret: ${HOME}/.docker/config.json
 
 ../../cluster-autoscaler: brightbox_cloud_provider.go brightbox_node_group.go
 	$(MAKE) -C $(@D) container
+	docker tag ${REGISTRY}/cluster-autoscaler-${BUILD_TAGS}:${TAG}-amd64 ${REGISTRY}/cluster-autoscaler-${BUILD_TAGS}:${TAG}
 	docker push ${REGISTRY}/cluster-autoscaler-${BUILD_TAGS}:${TAG}
 
 .PHONY: build
