@@ -1,4 +1,4 @@
-// Copyright 2018 Brightbox Systems Ltd
+// Copyright 2020 Brightbox Systems Ltd
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -144,6 +144,46 @@ func (c *Cloud) GetFirewallPolicyByName(name string) (*brightbox.FirewallPolicy,
 		}
 	}
 	return result, nil
+}
+
+// GetServerTypes obtains the list of Server Types on the account
+func (c *Cloud) GetServerTypes() ([]brightbox.ServerType, error) {
+	klog.V(4).Info("GetServerTypes")
+	client, err := c.CloudClient()
+	if err != nil {
+		return nil, err
+	}
+	return client.ServerTypes()
+}
+
+// GetServerType fetches a Server Type from its ID
+func (c *Cloud) GetServerType(identifier string) (*brightbox.ServerType, error) {
+	klog.V(4).Infof("GetServerType %q", identifier)
+	client, err := c.CloudClient()
+	if err != nil {
+		return nil, err
+	}
+	return client.ServerType(identifier)
+}
+
+// GetConfigMaps obtains the list of Config Maps on the account
+func (c *Cloud) GetConfigMaps() ([]brightbox.ConfigMap, error) {
+	klog.V(4).Info("GetConfigMaps")
+	client, err := c.CloudClient()
+	if err != nil {
+		return nil, err
+	}
+	return client.ConfigMaps()
+}
+
+// GetConfigMap fetches a Config Map from its ID
+func (c *Cloud) GetConfigMap(identifier string) (*brightbox.ConfigMap, error) {
+	klog.V(4).Infof("GetConfigMap %q", identifier)
+	client, err := c.CloudClient()
+	if err != nil {
+		return nil, err
+	}
+	return client.ConfigMap(identifier)
 }
 
 // GetServerGroups obtains the list of Server Groups on the account
