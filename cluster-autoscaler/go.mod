@@ -10,6 +10,8 @@ require (
 	github.com/Azure/go-autorest/autorest/date v0.3.0
 	github.com/Azure/go-autorest/autorest/to v0.2.0
 	github.com/aws/aws-sdk-go v1.35.24
+	github.com/brightbox/gobrightbox v0.5.7
+	github.com/brightbox/k8ssdk v0.6.1
 	github.com/codegangsta/negroni v1.0.0 // indirect
 	github.com/digitalocean/godo v1.27.0
 	github.com/ghodss/yaml v1.0.0
