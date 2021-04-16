@@ -28,6 +28,7 @@ import (
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider"
+	"k8s.io/autoscaler/cluster-autoscaler/config"
 	klog "k8s.io/klog/v2"
 	schedulerframework "k8s.io/kubernetes/pkg/scheduler/framework"
 )
@@ -277,6 +278,12 @@ func (ng *brightboxNodeGroup) Create() (cloudprovider.NodeGroup, error) {
 func (ng *brightboxNodeGroup) Delete() error {
 	klog.V(4).Info("Delete")
 	return cloudprovider.ErrNotImplemented
+}
+
+// GetOptions returns NodeGroupAutoscalingOptions that should be used for this particular
+// NodeGroup. Returning a nil will result in using default options.
+func (ng *brightboxNodeGroup) GetOptions(defaults config.NodeGroupAutoscalingOptions) (*config.NodeGroupAutoscalingOptions, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 // Autoprovisioned returns true if the node group is autoprovisioned. An
