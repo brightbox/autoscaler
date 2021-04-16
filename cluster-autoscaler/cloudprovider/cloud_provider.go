@@ -36,7 +36,8 @@ const (
 	AwsProviderName = "aws"
 	// BaiducloudProviderName gets the provider name of baiducloud
 	BaiducloudProviderName = "baiducloud"
-	// CloudStackProviderName gets the provider name of cloudstack
+	// BrightboxProviderName gets the provider name of brightbox
+	BrightboxProviderName  = "brightbox"
 	CloudStackProviderName = "cloudstack"
 	// ClusterAPIProviderName gets the provider name of clusterapi
 	ClusterAPIProviderName = "clusterapi"
