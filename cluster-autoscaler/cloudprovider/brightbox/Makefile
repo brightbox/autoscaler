@@ -1,5 +1,6 @@
 export BUILD_TAGS=brightbox
 export REGISTRY=brightbox
+export GOARCH?=$(shell go env GOARCH)
 ifndef TAG
 	override TAG=dev
 endif
@@ -12,7 +13,7 @@ endif
 deploy: examples/config.rb $(deploydeps)
 	helm repo update
 	ruby $< | \
-	helm template release stable/cluster-autoscaler \
+	helm template release autoscaler/cluster-autoscaler \
 	--namespace kube-system -f - | \
 	kubectl -n kube-system apply -f -
 
@@ -20,7 +21,7 @@ deploy: examples/config.rb $(deploydeps)
 remove: examples/config.rb
 	helm repo update
 	ruby $< | \
-	helm template release stable/cluster-autoscaler \
+	helm template release autoscaler/cluster-autoscaler \
 	--namespace kube-system -f - | \
 	kubectl -n kube-system delete -f -
 
@@ -32,7 +33,7 @@ secret: ${HOME}/.docker/config.json
 
 ../../cluster-autoscaler: brightbox_cloud_provider.go brightbox_node_group.go
 	$(MAKE) -C $(@D) container
-	docker tag ${REGISTRY}/cluster-autoscaler-${BUILD_TAGS}:${TAG}-amd64 ${REGISTRY}/cluster-autoscaler-${BUILD_TAGS}:${TAG}
+	docker tag ${REGISTRY}/cluster-autoscaler-${BUILD_TAGS}-${GOARCH}:${TAG} ${REGISTRY}/cluster-autoscaler-${BUILD_TAGS}:${TAG}
 	docker push ${REGISTRY}/cluster-autoscaler-${BUILD_TAGS}:${TAG}
 
 .PHONY: build
